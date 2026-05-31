@@ -1,0 +1,178 @@
+/**
+ * File de morceaux + votes, en temps réel via Supabase.
+ *
+ * L'API publique (addTrack / toggleVote / removeTrack / sorted / nowPlaying)
+ * est inchangée par rapport au prototype BroadcastChannel : l'UI ne bouge pas.
+ */
+
+interface DbTrack {
+  id: string
+  room_id: string
+  title: string
+  artist: string
+  cover: string
+  source: 'youtube' | 'spotify'
+  external_id: string
+  added_by: string
+  played: boolean
+  created_at: string
+}
+
+interface DbVote {
+  track_id: string
+  voter_id: string
+}
+
+export interface QueueTrack {
+  id: string
+  title: string
+  artist: string
+  cover: string
+  source: 'youtube' | 'spotify'
+  externalId: string
+  addedBy: string
+  voters: string[]
+  createdAt: number
+}
+
+export interface NewTrack {
+  title: string
+  artist?: string
+  cover?: string
+  source: 'youtube' | 'spotify'
+  externalId: string
+}
+
+export function useQueue(roomId: string, uid: string) {
+  const supabase = useSupabaseClient()
+
+  const rows = ref<DbTrack[]>([])
+  const votesByTrack = ref<Record<string, string[]>>({})
+
+  function toQueueTrack(r: DbTrack): QueueTrack {
+    return {
+      id: r.id,
+      title: r.title,
+      artist: r.artist,
+      cover: r.cover || '/sample-cover.svg',
+      source: r.source,
+      externalId: r.external_id,
+      addedBy: r.added_by,
+      voters: votesByTrack.value[r.id] ?? [],
+      createdAt: new Date(r.created_at).getTime()
+    }
+  }
+
+  const tracks = computed<QueueTrack[]>(() => rows.value.map(toQueueTrack))
+
+  // Tri : plus de votes d'abord, puis le plus ancien (FIFO à égalité).
+  const sorted = computed(() =>
+    [...tracks.value].sort((a, b) =>
+      b.voters.length - a.voters.length || a.createdAt - b.createdAt
+    )
+  )
+
+  /** Morceau en tête de file = en lecture. */
+  const nowPlaying = computed<QueueTrack | null>(() => sorted.value[0] ?? null)
+
+  function hasVoted(track: QueueTrack) {
+    return track.voters.includes(uid)
+  }
+
+  // --- Mutations (optimistes + persistées) ---
+
+  async function addTrack(track: NewTrack) {
+    const { data, error } = await supabase
+      .from('tracks')
+      .insert({
+        room_id: roomId,
+        title: track.title,
+        artist: track.artist ?? '',
+        cover: track.cover ?? '',
+        source: track.source,
+        external_id: track.externalId,
+        added_by: uid
+      })
+      .select()
+      .single()
+
+    if (error || !data) return
+    // L'ajout vaut un vote pour soi-même.
+    await supabase.from('votes').insert({ track_id: (data as DbTrack).id, voter_id: uid })
+  }
+
+  async function toggleVote(trackId: string) {
+    const current = votesByTrack.value[trackId] ?? []
+    if (current.includes(uid)) {
+      await supabase.from('votes').delete().eq('track_id', trackId).eq('voter_id', uid)
+    } else {
+      await supabase.from('votes').insert({ track_id: trackId, voter_id: uid })
+    }
+  }
+
+  async function removeTrack(trackId: string) {
+    await supabase.from('tracks').delete().eq('id', trackId)
+  }
+
+  // --- Chargement initial ---
+
+  async function fetchAll() {
+    const { data: t } = await supabase
+      .from('tracks')
+      .select('*')
+      .eq('room_id', roomId)
+    rows.value = (t ?? []) as DbTrack[]
+
+    const ids = rows.value.map(r => r.id)
+    const map: Record<string, string[]> = {}
+    if (ids.length) {
+      const { data: v } = await supabase
+        .from('votes')
+        .select('track_id, voter_id')
+        .in('track_id', ids)
+      for (const vote of (v ?? []) as DbVote[]) {
+        ;(map[vote.track_id] ??= []).push(vote.voter_id)
+      }
+    }
+    votesByTrack.value = map
+  }
+
+  // --- Realtime ---
+
+  let channel: ReturnType<typeof supabase.channel> | null = null
+
+  onMounted(async () => {
+    await fetchAll()
+
+    channel = supabase
+      .channel(`room:${roomId}`)
+      // Morceaux de cette room
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tracks', filter: `room_id=eq.${roomId}` },
+        () => fetchAll()
+      )
+      // Votes : pas filtrables par room côté serveur → on resynchronise.
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'votes' },
+        () => fetchAll()
+      )
+      .subscribe()
+  })
+
+  onBeforeUnmount(() => {
+    if (channel) supabase.removeChannel(channel)
+    channel = null
+  })
+
+  return {
+    tracks,
+    sorted,
+    nowPlaying,
+    addTrack,
+    toggleVote,
+    removeTrack,
+    hasVoted
+  }
+}
