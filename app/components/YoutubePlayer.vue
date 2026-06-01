@@ -24,6 +24,9 @@ let raf = 0
 
 const ready = ref(false)
 const fullscreen = ref(false)
+// L'autoplay AVEC SON est bloqué tant que l'utilisateur n'a pas interagi.
+// On affiche alors un overlay "Rejoindre l'écoute" ; le clic débloque tout.
+const needsGesture = ref(false)
 
 function tick() {
   if (player && ready.value) {
@@ -74,10 +77,22 @@ onMounted(async () => {
         ready.value = true
         if (props.muted) e.target.mute()
         else e.target.unMute()
-        if (props.playing !== false) e.target.playVideo()
-        else e.target.pauseVideo()
+        if (props.playing !== false) {
+          e.target.playVideo()
+          // Si après un court délai la vidéo n'a pas démarré (autoplay son
+          // bloqué), on demande un geste utilisateur.
+          setTimeout(() => {
+            if (player && props.playing !== false && player.getPlayerState() !== YT.PlayerState.PLAYING) {
+              needsGesture.value = true
+            }
+          }, 1000)
+        } else {
+          e.target.pauseVideo()
+        }
       },
       onStateChange: (e: { data: number }) => {
+        // Dès que ça joue pour de vrai, plus besoin de l'overlay.
+        if (e.data === YT.PlayerState.PLAYING) needsGesture.value = false
         if (e.data === YT.PlayerState.ENDED) emit('ended')
       }
     }
@@ -86,6 +101,14 @@ onMounted(async () => {
   raf = requestAnimationFrame(tick)
   document.addEventListener('fullscreenchange', onFsChange)
 })
+
+/** Geste utilisateur : débloque le son et lance la lecture. */
+function resume() {
+  if (!player) return
+  if (!props.muted) player.unMute()
+  player.playVideo()
+  needsGesture.value = false
+}
 
 watch(() => props.videoId, (id) => {
   if (player && ready.value && id) {
@@ -149,6 +172,21 @@ onBeforeUnmount(() => {
         :tabindex="fullscreen ? 0 : -1"
         @click="fullscreen && exitFullscreen()"
       />
+
+      <!-- Overlay "Rejoindre l'écoute" : le navigateur bloque l'autoplay
+           avec son sans interaction. Le clic débloque le son + lance. -->
+      <button
+        v-if="needsGesture"
+        type="button"
+        class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/70 text-white backdrop-blur-sm transition hover:bg-black/60"
+        @click="resume"
+      >
+        <UIcon
+          name="i-lucide-volume-2"
+          class="size-7"
+        />
+        <span class="text-sm font-semibold">Rejoindre l'écoute</span>
+      </button>
     </div>
 
     <!-- Infos (titre/artiste) — masquées en plein écran -->
