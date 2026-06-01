@@ -1,13 +1,16 @@
 /**
- * Recherche YouTube — proxy serveur.
+ * Recherche YouTube — proxy serveur, avec cache.
  *
  * La clé YouTube Data API reste côté serveur (runtimeConfig.youtubeApiKey)
  * et n'est jamais exposée au navigateur. Le front appelle /api/search?q=...
  *
- * ⚠️ Quota : une recherche coûte 100 unités (quota gratuit = 10 000/jour,
- * soit ~100 recherches). Le front doit débouncer et éviter les requêtes
- * inutiles.
+ * ⚠️ Quota : search.list coûte 100 unités (quota gratuit = 10 000/jour).
+ * Pour économiser, on met en cache les résultats par requête normalisée
+ * (table search_cache) : une recherche déjà faite est resservie sans appeler
+ * YouTube (0 unité).
  */
+import { serverSupabaseClient } from '#supabase/server'
+import type { Database } from '~/types/database.types'
 
 interface YtSearchItem {
   id?: { videoId?: string }
@@ -44,13 +47,26 @@ function decodeHtml(s: string): string {
 
 export default defineEventHandler(async (event): Promise<SearchResult[]> => {
   const { youtubeApiKey } = useRuntimeConfig(event)
-  const q = (getQuery(event).q as string | undefined)?.trim()
+  const raw = (getQuery(event).q as string | undefined)?.trim()
 
   if (!youtubeApiKey) {
     throw createError({ statusCode: 500, statusMessage: 'YOUTUBE_API_KEY manquante côté serveur' })
   }
-  if (!q) return []
+  if (!raw) return []
 
+  // Clé de cache normalisée (insensible à la casse / aux espaces).
+  const cacheKey = raw.toLowerCase().replace(/\s+/g, ' ')
+  const supabase = await serverSupabaseClient<Database>(event)
+
+  // 1) Cache : si la requête a déjà été faite, on ressert sans toucher au quota.
+  const { data: cached } = await supabase
+    .from('search_cache')
+    .select('results')
+    .eq('q', cacheKey)
+    .maybeSingle()
+  if (cached?.results) return cached.results as SearchResult[]
+
+  // 2) Sinon, appel YouTube (100 unités) puis mise en cache.
   try {
     const data = await $fetch<YtSearchResponse>('https://www.googleapis.com/youtube/v3/search', {
       query: {
@@ -59,11 +75,11 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
         type: 'video',
         maxResults: 8,
         videoCategoryId: '10', // Musique
-        q
+        q: raw
       }
     })
 
-    return (data.items ?? [])
+    const results: SearchResult[] = (data.items ?? [])
       .filter((it): it is YtSearchItem & { id: { videoId: string } } => !!it.id?.videoId)
       .map(it => ({
         videoId: it.id.videoId,
@@ -74,6 +90,12 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
           ?? it.snippet?.thumbnails?.default?.url
           ?? ''
       }))
+
+    // Mise en cache (upsert : ignore si déjà inséré entre-temps).
+    if (results.length) {
+      await supabase.from('search_cache').upsert({ q: cacheKey, results })
+    }
+    return results
   } catch {
     throw createError({ statusCode: 502, statusMessage: 'Recherche YouTube indisponible' })
   }

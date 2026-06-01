@@ -1,16 +1,17 @@
 import type { SearchResult } from '~~/server/api/search.get'
 
 /**
- * Recherche YouTube côté client, débouncée.
- * Appelle la route serveur /api/search (la clé reste côté serveur).
+ * Recherche YouTube côté client, déclenchée À LA VALIDATION (Entrée), pas en
+ * live : search.list coûte 100 unités de quota → on ne cherche que sur une
+ * intention explicite (1 recherche = 1 Entrée). Appelle /api/search (qui
+ * met en cache côté serveur).
  */
-export function useYoutubeSearch(delay = 450) {
+export function useYoutubeSearch() {
   const query = ref('')
   const results = ref<SearchResult[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  let timer: ReturnType<typeof setTimeout> | null = null
   let seq = 0 // anti-course : on ignore les réponses périmées
 
   // Détecte un ID de playlist dans une URL collée (music/www youtube, ?list=…).
@@ -19,12 +20,15 @@ export function useYoutubeSearch(delay = 450) {
     return m?.[1] ?? null
   })
 
-  async function run(q: string) {
+  /** Lance la recherche (sur Entrée). Ignorée si URL de playlist ou trop court. */
+  async function submit() {
+    const trimmed = query.value.trim()
+    if (playlistId.value || trimmed.length < 2) return
     const mine = ++seq
     loading.value = true
     error.value = null
     try {
-      const data = await $fetch<SearchResult[]>('/api/search', { query: { q } })
+      const data = await $fetch<SearchResult[]>('/api/search', { query: { q: trimmed } })
       if (mine === seq) results.value = data
     } catch {
       if (mine === seq) {
@@ -36,21 +40,9 @@ export function useYoutubeSearch(delay = 450) {
     }
   }
 
-  watch(query, (q) => {
-    if (timer) clearTimeout(timer)
-    const trimmed = q.trim()
-    // URL de playlist collée → pas de recherche mots-clés (l'UI propose l'import).
-    if (playlistId.value) {
-      results.value = []
-      loading.value = false
-      return
-    }
-    if (trimmed.length < 2) {
-      results.value = []
-      loading.value = false
-      return
-    }
-    timer = setTimeout(() => run(trimmed), delay)
+  // Vider les résultats dès que l'input change (ils ne correspondent plus).
+  watch(query, () => {
+    results.value = []
   })
 
   function clear() {
@@ -59,5 +51,5 @@ export function useYoutubeSearch(delay = 450) {
     error.value = null
   }
 
-  return { query, results, loading, error, clear, playlistId }
+  return { query, results, loading, error, clear, playlistId, submit }
 }

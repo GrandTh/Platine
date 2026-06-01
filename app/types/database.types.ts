@@ -94,6 +94,24 @@ export type Database = {
         }
         Relationships: []
       }
+      search_cache: {
+        Row: {
+          q: string
+          results: unknown
+          created_at: string
+        }
+        Insert: {
+          q: string
+          results: unknown
+          created_at?: string
+        }
+        Update: {
+          q?: string
+          results?: unknown
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

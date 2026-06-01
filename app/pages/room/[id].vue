@@ -101,7 +101,7 @@ function nextTrack() {
 }
 
 // Recherche YouTube (débouncée, via la route serveur)
-const { query: search, results, loading: searching, clear, playlistId } = useYoutubeSearch()
+const { query: search, results, loading: searching, clear, playlistId, submit: submitSearch } = useYoutubeSearch()
 
 function pick(result: { videoId: string, title: string, channel: string, thumbnail: string }) {
   addTrack({
@@ -427,8 +427,9 @@ async function copyLink() {
             />
             <input
               v-model="search"
-              placeholder="Rechercher un son ou coller une playlist…"
+              placeholder="Rechercher (Entrée) ou coller une playlist…"
               class="w-full bg-transparent text-sm outline-none placeholder:text-white/40"
+              @keyup.enter="submitSearch"
             >
             <button
               v-if="search"
