@@ -29,7 +29,7 @@ watch(
   },
   { immediate: true }
 )
-renderer.onReady(r => applyEnv(r as WebGLRenderer))
+renderer.onReady(r => applyEnv(r as unknown as WebGLRenderer))
 
 onBeforeUnmount(() => {
   if (scene.value) scene.value.environment = null
