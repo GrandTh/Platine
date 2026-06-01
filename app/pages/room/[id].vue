@@ -411,7 +411,7 @@ async function copyLink() {
          desktop md:inset-y-0) ne doit pas intercepter les clics du header.
          Le panneau interne réactive les events. -->
     <aside class="pointer-events-none absolute inset-x-0 bottom-0 p-4 md:inset-y-0 md:right-0 md:left-auto md:flex md:w-96 md:items-center md:p-6">
-      <div class="pointer-events-auto flex max-h-[45dvh] w-full flex-col rounded-3xl border border-white/15 bg-black/30 p-5 backdrop-blur-2xl md:max-h-[80dvh]">
+      <div class="pointer-events-auto flex h-[45dvh] w-full flex-col rounded-3xl border border-white/15 bg-black/30 p-5 backdrop-blur-2xl md:h-[80dvh]">
         <!-- Onglets : file d'attente / membres -->
         <div class="flex items-center gap-1 rounded-xl bg-white/5 p-1">
           <button
