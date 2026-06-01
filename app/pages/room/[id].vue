@@ -604,8 +604,8 @@ async function copyLink() {
           <!-- Morceau en lecture -->
           <li
             v-if="nowPlaying"
-            class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/15 transition"
-            :style="{ backgroundImage: `linear-gradient(to right, ${userColor(nowPlaying.addedBy)}b3 0%, transparent 40%)` }"
+            class="now-playing flex items-center gap-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/15 transition"
+            :style="{ backgroundImage: `linear-gradient(to right, ${userColor(nowPlaying.addedBy)}b3 0%, transparent 45%)` }"
           >
             <UIcon
               name="i-lucide-volume-2"
@@ -689,3 +689,27 @@ async function copyLink() {
     </aside>
   </div>
 </template>
+
+<style scoped>
+/* Morceau en cours : le dégradé "respire" doucement (va-et-vient + pulse)
+   pour marquer qu'il est vivant, sans distraire. */
+.now-playing {
+  background-size: 160% 100%;
+  animation: now-playing-breathe 3.2s ease-in-out infinite;
+}
+@keyframes now-playing-breathe {
+  0%, 100% {
+    background-position: 0% 0;
+    opacity: 0.92;
+  }
+  50% {
+    background-position: 18% 0;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .now-playing {
+    animation: none;
+  }
+}
+</style>

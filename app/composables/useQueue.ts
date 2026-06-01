@@ -152,13 +152,23 @@ export function useQueue(roomId: string, uid: string) {
   async function toggleVote(trackId: string) {
     const current = votesByTrack.value[trackId] ?? []
     if (current.includes(uid)) {
+      // Optimiste : retire le vote localement (le DELETE realtime filtré
+      // peut ne pas revenir si REPLICA IDENTITY FULL n'est pas actif).
+      votesByTrack.value = {
+        ...votesByTrack.value,
+        [trackId]: current.filter(v => v !== uid)
+      }
       await supabase.from('votes').delete().eq('track_id', trackId).eq('voter_id', uid)
     } else {
+      votesByTrack.value = { ...votesByTrack.value, [trackId]: [...current, uid] }
       await supabase.from('votes').insert({ track_id: trackId, voter_id: uid })
     }
   }
 
   async function removeTrack(trackId: string) {
+    // Optimiste : on retire de la liste tout de suite (le DELETE realtime
+    // filtré n'arrive pas toujours selon la config REPLICA IDENTITY).
+    rows.value = rows.value.filter(r => r.id !== trackId)
     await supabase.from('tracks').delete().eq('id', trackId)
   }
 
