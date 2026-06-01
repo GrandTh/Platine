@@ -423,7 +423,7 @@ async function copyLink() {
               name="i-lucide-list-music"
               class="size-4"
             />
-            File
+            Playlist
             <span class="rounded-full bg-white/10 px-1.5 text-xs">{{ tracks.length }}</span>
           </button>
           <button
