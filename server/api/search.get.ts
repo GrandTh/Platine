@@ -58,13 +58,18 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
   const cacheKey = raw.toLowerCase().replace(/\s+/g, ' ')
   const supabase = await serverSupabaseClient<Database>(event)
 
-  // 1) Cache : si la requête a déjà été faite, on ressert sans toucher au quota.
+  // 1) Cache : si la requête a déjà été faite récemment, on ressert sans
+  // toucher au quota. TTL de 30 jours → au-delà, on refait une vraie recherche
+  // (les résultats musicaux sont stables, mais on évite de figer indéfiniment).
+  const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000
   const { data: cached } = await supabase
     .from('search_cache')
-    .select('results')
+    .select('results, created_at')
     .eq('q', cacheKey)
     .maybeSingle()
-  if (cached?.results) return cached.results as SearchResult[]
+  if (cached?.results && Date.now() - new Date(cached.created_at).getTime() < CACHE_TTL_MS) {
+    return cached.results as SearchResult[]
+  }
 
   // 2) Sinon, appel YouTube (100 unités) puis mise en cache.
   try {
@@ -91,9 +96,14 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
           ?? ''
       }))
 
-    // Mise en cache (upsert : ignore si déjà inséré entre-temps).
+    // Mise en cache (upsert) : rafraîchit aussi created_at pour réarmer le TTL
+    // quand on recache une entrée expirée.
     if (results.length) {
-      await supabase.from('search_cache').upsert({ q: cacheKey, results })
+      await supabase.from('search_cache').upsert({
+        q: cacheKey,
+        results,
+        created_at: new Date().toISOString()
+      })
     }
     return results
   } catch {
