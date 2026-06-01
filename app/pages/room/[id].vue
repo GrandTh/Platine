@@ -4,10 +4,25 @@ import type { PerspectiveCamera } from 'three'
 const route = useRoute()
 const roomId = computed(() => String(route.params.id).toUpperCase())
 
-// Intentions venues de l'URL (uniquement à la création par l'hôte).
-const wantHost = route.query.host === '1'
-const urlSource = route.query.source === 'both' ? 'both' : 'youtube'
-const urlMode = route.query.mode === 'speaker' ? 'speaker' : 'each'
+// Intention de création, déposée en sessionStorage par la home (pas dans
+// l'URL → URL propre /room/CODE). Présente uniquement chez le créateur ;
+// consommée une fois (un refresh ne recrée pas la room — elle est déjà en DB).
+const createKey = `platine:create:${roomId.value}`
+let intent: { source?: 'youtube' | 'both', mode?: 'speaker' | 'each' } = {}
+if (import.meta.client) {
+  const raw = sessionStorage.getItem(createKey)
+  if (raw) {
+    try {
+      intent = JSON.parse(raw)
+    } catch {
+      intent = {}
+    }
+    sessionStorage.removeItem(createKey)
+  }
+}
+const wantHost = !!(intent.source || intent.mode)
+const urlSource = intent.source === 'both' ? 'both' : 'youtube'
+const urlMode = intent.mode === 'speaker' ? 'speaker' : 'each'
 
 const uid = useAnonId()
 

@@ -25,7 +25,14 @@ function pickMode(mode: RoomMode) {
 
 function createRoom(source: 'youtube' | 'both') {
   showCreate.value = false
-  navigateTo(`/room/${newRoomCode()}?source=${source}&mode=${chosenMode.value}&host=1`)
+  const code = newRoomCode()
+  // L'intention de création (hôte + config) passe par sessionStorage, pas
+  // par l'URL : on garde une URL propre /room/CODE, partageable telle quelle.
+  sessionStorage.setItem(
+    `platine:create:${code}`,
+    JSON.stringify({ source, mode: chosenMode.value })
+  )
+  navigateTo(`/room/${code}`)
 }
 
 // --- Flow "Rejoindre une room" ---
