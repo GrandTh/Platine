@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PerspectiveCamera } from 'three'
+import { userColor } from '~/composables/useUserColor'
 
 const route = useRoute()
 const roomId = computed(() => String(route.params.id).toUpperCase())
@@ -35,6 +36,24 @@ const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
 // File de morceaux + votes (temps réel via Supabase)
 const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
+
+// Membres de la room (présence + noms personnalisables, couleur par uid)
+const { members, myName, rename } = useMembers(roomId.value, uid)
+
+// Onglets du panneau latéral : file d'attente / membres
+const panelTab = ref<'queue' | 'members'>('queue')
+
+// Rename inline
+const renaming = ref(false)
+const nameDraft = ref('')
+function startRename() {
+  nameDraft.value = myName.value
+  renaming.value = true
+}
+function confirmRename() {
+  rename(nameDraft.value)
+  renaming.value = false
+}
 
 // Le morceau en lecture est FIGÉ par la room (current_track_id), pas par les
 // votes : il joue jusqu'au bout/skip, et les votes ne réordonnent que la suite.
@@ -393,15 +412,89 @@ async function copyLink() {
          Le panneau interne réactive les events. -->
     <aside class="pointer-events-none absolute inset-x-0 bottom-0 p-4 md:inset-y-0 md:right-0 md:left-auto md:flex md:w-96 md:items-center md:p-6">
       <div class="pointer-events-auto flex max-h-[45dvh] w-full flex-col rounded-3xl border border-white/15 bg-black/30 p-5 backdrop-blur-2xl md:max-h-[80dvh]">
-        <div class="flex items-center justify-between">
-          <h2 class="text-lg font-bold">
-            File d'attente
-          </h2>
-          <span class="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white/60">{{ tracks.length }}</span>
+        <!-- Onglets : file d'attente / membres -->
+        <div class="flex items-center gap-1 rounded-xl bg-white/5 p-1">
+          <button
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition"
+            :class="panelTab === 'queue' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
+            @click="panelTab = 'queue'"
+          >
+            <UIcon
+              name="i-lucide-list-music"
+              class="size-4"
+            />
+            File
+            <span class="rounded-full bg-white/10 px-1.5 text-xs">{{ tracks.length }}</span>
+          </button>
+          <button
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition"
+            :class="panelTab === 'members' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
+            @click="panelTab = 'members'"
+          >
+            <UIcon
+              name="i-lucide-users"
+              class="size-4"
+            />
+            Membres
+            <span class="rounded-full bg-white/10 px-1.5 text-xs">{{ members.length }}</span>
+          </button>
         </div>
 
+        <!-- ───── Onglet MEMBRES ───── -->
+        <div
+          v-if="panelTab === 'members'"
+          class="mt-4 flex-1 overflow-y-auto"
+        >
+          <ul class="space-y-1.5">
+            <li
+              v-for="m in members"
+              :key="m.uid"
+              class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5"
+            >
+              <span
+                class="size-3 shrink-0 rounded-full"
+                :style="{ backgroundColor: m.color }"
+              />
+              <!-- Édition du nom (soi-même) -->
+              <template v-if="m.isSelf && renaming">
+                <input
+                  v-model="nameDraft"
+                  maxlength="24"
+                  class="min-w-0 flex-1 rounded-md bg-white/10 px-2 py-1 text-sm outline-none"
+                  @keyup.enter="confirmRename"
+                  @blur="confirmRename"
+                >
+              </template>
+              <template v-else>
+                <span class="min-w-0 flex-1 truncate text-sm">
+                  {{ m.name }}
+                  <span
+                    v-if="m.isSelf"
+                    class="text-xs text-white/40"
+                  >(vous)</span>
+                </span>
+                <button
+                  v-if="m.isSelf"
+                  class="shrink-0 text-white/40 transition hover:text-white"
+                  aria-label="Changer mon nom"
+                  @click="startRename"
+                >
+                  <UIcon
+                    name="i-lucide-pencil"
+                    class="size-4"
+                  />
+                </button>
+              </template>
+            </li>
+          </ul>
+        </div>
+
+        <!-- ───── Onglet FILE ───── -->
         <!-- Recherche YouTube -->
-        <div class="relative mt-4">
+        <div
+          v-show="panelTab === 'queue'"
+          class="relative mt-4"
+        >
           <div class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
             <UIcon
               :name="searching ? 'i-lucide-loader-circle' : 'i-lucide-search'"
@@ -489,7 +582,7 @@ async function copyLink() {
 
         <!-- État vide (aucun morceau à venir) -->
         <div
-          v-if="upNext.length === 0"
+          v-if="panelTab === 'queue' && upNext.length === 0"
           class="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center"
         >
           <UIcon
@@ -504,13 +597,14 @@ async function copyLink() {
 
         <!-- File à venir (hors morceau en cours), triée par votes -->
         <ul
-          v-else
+          v-else-if="panelTab === 'queue'"
           class="mt-3 flex-1 space-y-2 overflow-y-auto"
         >
           <li
             v-for="(track, i) in upNext"
             :key="track.id"
             class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5 transition"
+            :style="{ backgroundImage: `linear-gradient(to left, ${userColor(track.addedBy)}66 0%, transparent 25%)` }"
           >
             <span class="w-4 shrink-0 text-center text-sm text-white/40">{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">

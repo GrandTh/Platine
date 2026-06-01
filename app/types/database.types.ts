@@ -112,6 +112,30 @@ export type Database = {
         }
         Relationships: []
       }
+      members: {
+        Row: {
+          room_id: string
+          uid: string
+          name: string | null
+          last_seen: string
+          created_at: string
+        }
+        Insert: {
+          room_id: string
+          uid: string
+          name?: string | null
+          last_seen?: string
+          created_at?: string
+        }
+        Update: {
+          room_id?: string
+          uid?: string
+          name?: string | null
+          last_seen?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
