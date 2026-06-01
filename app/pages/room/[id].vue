@@ -604,7 +604,7 @@ async function copyLink() {
             v-for="(track, i) in upNext"
             :key="track.id"
             class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5 transition"
-            :style="{ backgroundImage: `linear-gradient(to left, ${userColor(track.addedBy)}66 0%, transparent 25%)` }"
+            :style="{ backgroundImage: `linear-gradient(to right, ${userColor(track.addedBy)}66 0%, transparent 25%)` }"
           >
             <span class="w-4 shrink-0 text-center text-sm text-white/40">{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">
