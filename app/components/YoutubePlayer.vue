@@ -18,6 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const host = ref<HTMLElement | null>(null)
+const clip = ref<HTMLElement | null>(null)
 let player: YTPlayer | null = null
 let raf = 0
 
@@ -35,7 +36,24 @@ function tick() {
 function seek(seconds: number) {
   if (player && ready.value) player.seekTo(seconds, true)
 }
-defineExpose({ seek })
+
+/** Plein écran natif sur le clip. Sortie : Échap (natif) ou clic sur la vidéo. */
+async function enterFullscreen() {
+  if (!clip.value) return
+  try {
+    await clip.value.requestFullscreen()
+  } catch {
+    // certains navigateurs refusent hors interaction : sans effet
+  }
+}
+async function exitFullscreen() {
+  if (document.fullscreenElement) await document.exitFullscreen()
+}
+function onFsChange() {
+  fullscreen.value = document.fullscreenElement === clip.value
+}
+
+defineExpose({ seek, enterFullscreen })
 
 onMounted(async () => {
   if (!host.value) return
@@ -66,6 +84,7 @@ onMounted(async () => {
   })
 
   raf = requestAnimationFrame(tick)
+  document.addEventListener('fullscreenchange', onFsChange)
 })
 
 watch(() => props.videoId, (id) => {
@@ -89,74 +108,58 @@ watch(() => props.playing, (p) => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
+  document.removeEventListener('fullscreenchange', onFsChange)
   player?.destroy()
   player = null
 })
 </script>
 
 <template>
-  <div
-    class="pointer-events-auto"
-    :class="fullscreen
-      ? 'fixed inset-0 z-50 flex flex-col bg-black/95 p-6 backdrop-blur-md'
-      : 'absolute left-6 top-20 w-64 md:left-10 md:top-24 md:w-72'"
-  >
+  <div class="pointer-events-auto absolute left-6 top-20 w-64 md:left-10 md:top-24 md:w-72">
     <!-- Clip -->
+    <!-- En mode normal : faux read-only (le calque bloque les clics vers
+         l'iframe, sans rien déclencher). En plein écran natif : le calque
+         devient cliquable pour sortir, et la vidéo remplit l'écran. -->
     <div
-      class="group relative overflow-hidden rounded-2xl border border-white/15 bg-black shadow-2xl"
-      :class="fullscreen ? 'mx-auto aspect-video w-full max-w-5xl flex-1' : 'aspect-video'"
+      ref="clip"
+      class="relative overflow-hidden bg-black shadow-2xl"
+      :class="fullscreen
+        ? 'flex items-center justify-center'
+        : 'aspect-video rounded-2xl border border-white/15'"
     >
       <!-- Conteneur monté par l'API YouTube (remplacé par une iframe) -->
-      <div class="size-full">
+      <div :class="fullscreen ? 'aspect-video h-full max-h-full w-full max-w-full' : 'size-full'">
         <div
           ref="host"
           class="size-full"
         />
       </div>
 
-      <!-- Capteur de clic au-dessus de l'iframe : empêche YouTube de recevoir
-           le clic (sinon clic = pause). En mode coin, il ouvre le plein écran ;
-           en plein écran, il neutralise juste le clic (pas de pause accidentelle). -->
+      <!-- Calque : bloque les clics vers YouTube. En plein écran, un clic sort. -->
       <button
-        v-if="!fullscreen"
         type="button"
-        class="absolute inset-0 z-10 w-full cursor-zoom-in bg-transparent"
-        aria-label="Passer en plein écran"
-        @click="fullscreen = true"
+        class="absolute inset-0 z-10 w-full bg-transparent"
+        :class="fullscreen ? 'cursor-zoom-out' : 'cursor-default'"
+        :aria-label="fullscreen ? 'Quitter le plein écran' : 'Clip'"
+        :tabindex="fullscreen ? 0 : -1"
+        @click="fullscreen && exitFullscreen()"
       />
-      <div
-        v-else
-        class="absolute inset-0 z-0"
-        aria-hidden="true"
-      />
-
-      <!-- Fermer le plein écran -->
-      <button
-        v-if="fullscreen"
-        class="absolute top-3 right-3 z-20 grid size-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
-        aria-label="Quitter le plein écran"
-        @click.stop="fullscreen = false"
-      >
-        <UIcon
-          name="i-lucide-x"
-          class="size-5"
-        />
-      </button>
     </div>
 
-    <!-- Infos (titre/artiste) — la timeline est désormais en bas, plein écran -->
-    <div :class="fullscreen ? 'mx-auto mt-5 w-full max-w-5xl text-white' : 'mt-3 text-white'">
+    <!-- Infos (titre/artiste) — masquées en plein écran -->
+    <div
+      v-if="!fullscreen"
+      class="mt-3 text-white"
+    >
       <p
         v-if="title"
-        class="truncate font-semibold"
-        :class="fullscreen ? 'text-xl' : 'text-sm'"
+        class="truncate text-sm font-semibold"
       >
         {{ title }}
       </p>
       <p
         v-if="artist"
-        class="truncate text-white/55"
-        :class="fullscreen ? 'text-base' : 'text-xs'"
+        class="truncate text-xs text-white/55"
       >
         {{ artist }}
       </p>

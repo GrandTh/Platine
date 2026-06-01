@@ -22,7 +22,7 @@ const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 const { tracks, sorted, nowPlaying, addTrack, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
 
 // --- Progression + seek (timeline) ---
-const playerRef = useTemplateRef<{ seek: (s: number) => void }>('playerRef')
+const playerRef = useTemplateRef<{ seek: (s: number) => void, enterFullscreen: () => void }>('playerRef')
 const current = ref(0)
 const duration = ref(0)
 const progress = computed(() => (duration.value ? current.value / duration.value : 0))
@@ -300,32 +300,44 @@ async function copyLink() {
         <span>{{ fmt(duration) }}</span>
       </div>
 
-      <!-- Contrôles centrés (hôte) : pause/play + morceau suivant -->
-      <div
-        v-if="isHost"
-        class="pointer-events-auto mt-1 mb-5 flex items-center gap-4"
-      >
-        <button
-          class="grid size-12 place-items-center rounded-full text-black shadow-lg transition hover:scale-105"
-          :style="{ backgroundColor: vibrantHex }"
-          :aria-label="playing ? 'Pause' : 'Lecture'"
-          @click="togglePlaying"
-        >
-          <UIcon
-            :name="playing ? 'i-lucide-pause' : 'i-lucide-play'"
-            class="size-6"
-          />
-        </button>
+      <!-- Contrôles centrés -->
+      <div class="pointer-events-auto mt-1 mb-5 flex items-center gap-4">
+        <!-- Plein écran du clip (pour tout le monde) -->
         <button
           class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
-          aria-label="Morceau suivant"
-          @click="nextTrack"
+          aria-label="Plein écran"
+          @click="playerRef?.enterFullscreen()"
         >
           <UIcon
-            name="i-lucide-skip-forward"
+            name="i-lucide-expand"
             class="size-5"
           />
         </button>
+
+        <!-- Pause/play + morceau suivant : hôte uniquement -->
+        <template v-if="isHost">
+          <button
+            class="grid size-12 place-items-center rounded-full text-black shadow-lg transition hover:scale-105"
+            :style="{ backgroundColor: vibrantHex }"
+            :aria-label="playing ? 'Pause' : 'Lecture'"
+            @click="togglePlaying"
+          >
+            <UIcon
+              :name="playing ? 'i-lucide-pause' : 'i-lucide-play'"
+              class="size-6"
+            />
+          </button>
+          <button
+            class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+            aria-label="Morceau suivant"
+            @click="nextTrack"
+          >
+            <UIcon
+              name="i-lucide-skip-forward"
+              class="size-5"
+            />
+          </button>
+        </template>
       </div>
     </div>
 
