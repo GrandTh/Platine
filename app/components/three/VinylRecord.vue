@@ -69,7 +69,7 @@ function onMouseMove(e: MouseEvent) {
   // -1..1 par rapport au centre de l'écran
   const nx = (e.clientX / window.innerWidth) * 2 - 1
   const ny = (e.clientY / window.innerHeight) * 2 - 1
-  targetTilt.y = nx * TILT
+  targetTilt.y = -nx * TILT
   targetTilt.x = ny * TILT
 }
 
