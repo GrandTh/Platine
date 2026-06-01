@@ -13,6 +13,12 @@ export function useYoutubeSearch(delay = 450) {
   let timer: ReturnType<typeof setTimeout> | null = null
   let seq = 0 // anti-course : on ignore les réponses périmées
 
+  // Détecte un ID de playlist dans une URL collée (music/www youtube, ?list=…).
+  const playlistId = computed(() => {
+    const m = query.value.match(/[?&]list=([A-Za-z0-9_-]+)/)
+    return m?.[1] ?? null
+  })
+
   async function run(q: string) {
     const mine = ++seq
     loading.value = true
@@ -33,6 +39,12 @@ export function useYoutubeSearch(delay = 450) {
   watch(query, (q) => {
     if (timer) clearTimeout(timer)
     const trimmed = q.trim()
+    // URL de playlist collée → pas de recherche mots-clés (l'UI propose l'import).
+    if (playlistId.value) {
+      results.value = []
+      loading.value = false
+      return
+    }
     if (trimmed.length < 2) {
       results.value = []
       loading.value = false
@@ -47,5 +59,5 @@ export function useYoutubeSearch(delay = 450) {
     error.value = null
   }
 
-  return { query, results, loading, error, clear }
+  return { query, results, loading, error, clear, playlistId }
 }

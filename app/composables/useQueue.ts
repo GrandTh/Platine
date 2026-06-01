@@ -85,13 +85,16 @@ export function useQueue(roomId: string, uid: string) {
    * Ajoute un morceau — sauf s'il est déjà dans la file (même source +
    * external_id). Dans ce cas on vote pour l'existant plutôt que de créer
    * un doublon. Renvoie 'added' ou 'voted' pour informer l'UI.
+   *
+   * @param withVote  true (défaut) : compte 1 vote pour l'ajouteur.
+   *                  false : 0 vote (import playlist = fallback en bas de file).
    */
-  async function addTrack(track: NewTrack): Promise<'added' | 'voted'> {
+  async function addTrack(track: NewTrack, withVote = true): Promise<'added' | 'voted'> {
     const existing = rows.value.find(
       r => r.source === track.source && r.external_id === track.externalId
     )
     if (existing) {
-      if (!(votesByTrack.value[existing.id] ?? []).includes(uid)) {
+      if (withVote && !(votesByTrack.value[existing.id] ?? []).includes(uid)) {
         await supabase.from('votes').insert({ track_id: existing.id, voter_id: uid })
       }
       return 'voted'
@@ -112,9 +115,33 @@ export function useQueue(roomId: string, uid: string) {
       .single()
 
     if (error || !data) return 'added'
-    // L'ajout vaut un vote pour soi-même.
-    await supabase.from('votes').insert({ track_id: (data as DbTrack).id, voter_id: uid })
+    if (withVote) {
+      await supabase.from('votes').insert({ track_id: (data as DbTrack).id, voter_id: uid })
+    }
     return 'added'
+  }
+
+  /**
+   * Import groupé (playlist) : ajoute plusieurs morceaux SANS vote (fallback),
+   * en ignorant les doublons. Un seul fetchAll à la fin via le Realtime.
+   */
+  async function addMany(list: NewTrack[]) {
+    const existingKeys = new Set(rows.value.map(r => `${r.source}:${r.external_id}`))
+    const toInsert = list
+      .filter(t => !existingKeys.has(`${t.source}:${t.externalId}`))
+      .map(t => ({
+        room_id: roomId,
+        title: t.title,
+        artist: t.artist ?? '',
+        cover: t.cover ?? '',
+        source: t.source,
+        external_id: t.externalId,
+        added_by: uid
+      }))
+    if (toInsert.length) {
+      await supabase.from('tracks').insert(toInsert) // aucun vote → 0 par défaut
+    }
+    return toInsert.length
   }
 
   /** Le morceau (source + external_id) est-il déjà dans la file ? */
@@ -192,6 +219,7 @@ export function useQueue(roomId: string, uid: string) {
     sorted,
     nowPlaying,
     addTrack,
+    addMany,
     toggleVote,
     removeTrack,
     hasVoted,

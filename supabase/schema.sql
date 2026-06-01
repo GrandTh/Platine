@@ -20,6 +20,7 @@ create table if not exists public.rooms (
   mode        text not null default 'each'
                 check (mode in ('speaker', 'each')),
   playing     boolean not null default true,
+  current_track_id uuid,                             -- morceau en lecture (figé)
   last_active timestamptz not null default now(),
   created_at  timestamptz not null default now()
 );

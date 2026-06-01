@@ -32,6 +32,7 @@ export function useRoomLifecycle(
   const roomMode = ref<RoomMode>(mode)
   const isHost = ref(false)
   const playing = ref(true)
+  const currentTrackId = ref<string | null>(null)
   let timer: ReturnType<typeof setInterval> | null = null
   let channel: ReturnType<typeof supabase.channel> | null = null
 
@@ -59,7 +60,7 @@ export function useRoomLifecycle(
   async function loadRoom() {
     const { data } = await supabase
       .from('rooms')
-      .select('host_id, source, mode, playing')
+      .select('host_id, source, mode, playing, current_track_id')
       .eq('id', roomId)
       .maybeSingle()
     if (data) {
@@ -68,6 +69,7 @@ export function useRoomLifecycle(
       roomMode.value = data.mode
       isHost.value = data.host_id === uid
       playing.value = data.playing
+      currentTrackId.value = data.current_track_id
     } else {
       exists.value = false
     }
@@ -79,6 +81,13 @@ export function useRoomLifecycle(
     const next = !playing.value
     playing.value = next // optimiste
     await supabase.from('rooms').update({ playing: next }).eq('id', roomId)
+  }
+
+  /** Définit le morceau en cours (hôte uniquement). Propagé via Realtime. */
+  async function setCurrentTrack(trackId: string | null) {
+    if (!isHost.value) return
+    currentTrackId.value = trackId // optimiste
+    await supabase.from('rooms').update({ current_track_id: trackId }).eq('id', roomId)
   }
 
   onMounted(async () => {
@@ -115,8 +124,9 @@ export function useRoomLifecycle(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
         (payload) => {
-          const row = payload.new as { playing?: boolean }
+          const row = payload.new as { playing?: boolean, current_track_id?: string | null }
           if (typeof row.playing === 'boolean') playing.value = row.playing
+          if ('current_track_id' in row) currentTrackId.value = row.current_track_id ?? null
         }
       )
       .on('broadcast', { event: 'seek' }, ({ payload }) => {
@@ -135,6 +145,7 @@ export function useRoomLifecycle(
 
   return {
     exists, ready, source: roomSource, mode: roomMode, isHost,
-    playing, togglePlaying, broadcastSeek, onSeek
+    playing, togglePlaying, broadcastSeek, onSeek,
+    currentTrackId, setCurrentTrack
   }
 }

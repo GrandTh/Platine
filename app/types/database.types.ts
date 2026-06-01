@@ -11,6 +11,7 @@ export type Database = {
           source: 'youtube' | 'both'
           mode: 'speaker' | 'each'
           playing: boolean
+          current_track_id: string | null
           last_active: string
           created_at: string
         }
@@ -20,6 +21,7 @@ export type Database = {
           source?: 'youtube' | 'both'
           mode?: 'speaker' | 'each'
           playing?: boolean
+          current_track_id?: string | null
           last_active?: string
           created_at?: string
         }
@@ -29,6 +31,7 @@ export type Database = {
           source?: 'youtube' | 'both'
           mode?: 'speaker' | 'each'
           playing?: boolean
+          current_track_id?: string | null
           last_active?: string
           created_at?: string
         }

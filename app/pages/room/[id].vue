@@ -28,13 +28,30 @@ const uid = useAnonId()
 
 // Cycle de vie + config réelle de la room (source/mode/hôte lus en DB).
 // Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
-const { exists, ready, source, mode, isHost, playing, togglePlaying, broadcastSeek, onSeek } = useRoomLifecycle(
-  roomId.value, uid, wantHost, urlSource, urlMode
-)
+const {
+  exists, ready, source, mode, isHost, playing, togglePlaying,
+  broadcastSeek, onSeek, currentTrackId, setCurrentTrack
+} = useRoomLifecycle(roomId.value, uid, wantHost, urlSource, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
 // File de morceaux + votes (temps réel via Supabase)
-const { tracks, sorted, nowPlaying, addTrack, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
+const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
+
+// Le morceau en lecture est FIGÉ par la room (current_track_id), pas par les
+// votes : il joue jusqu'au bout/skip, et les votes ne réordonnent que la suite.
+const nowPlaying = computed(() => sorted.value.find(t => t.id === currentTrackId.value) ?? null)
+// File "à venir" = tout sauf le morceau en cours, triée par votes.
+const upNext = computed(() => sorted.value.filter(t => t.id !== currentTrackId.value))
+
+// Orchestration (hôte) : si aucun morceau courant valide mais la file n'est
+// pas vide, on lance le plus voté. Couvre le 1er ajout et les cas limites.
+watch([currentTrackId, sorted, isHost, ready], () => {
+  if (!isHost.value || !ready.value) return
+  const currentValid = currentTrackId.value && sorted.value.some(t => t.id === currentTrackId.value)
+  if (!currentValid) {
+    setCurrentTrack(sorted.value[0]?.id ?? null)
+  }
+}, { immediate: true })
 
 // --- Progression + seek (timeline) ---
 const playerRef = useTemplateRef<{ seek: (s: number) => void, enterFullscreen: () => void }>('playerRef')
@@ -67,13 +84,24 @@ onSeek((seconds) => {
   playerRef.value?.seek(seconds)
 })
 
-// Passer au morceau suivant (hôte) : retire le morceau en cours.
+// Avance au morceau suivant (hôte) : retire le morceau courant, puis désigne
+// le plus voté de la suite comme nouveau morceau en cours.
+function advance() {
+  if (!isHost.value) return
+  const finished = currentTrackId.value
+  const next = upNext.value[0]?.id ?? null
+  setCurrentTrack(next)
+  if (finished) removeTrack(finished)
+}
+function onTrackEnded() {
+  advance()
+}
 function nextTrack() {
-  if (isHost.value && nowPlaying.value) removeTrack(nowPlaying.value.id)
+  advance()
 }
 
 // Recherche YouTube (débouncée, via la route serveur)
-const { query: search, results, loading: searching, clear } = useYoutubeSearch()
+const { query: search, results, loading: searching, clear, playlistId } = useYoutubeSearch()
 
 function pick(result: { videoId: string, title: string, channel: string, thumbnail: string }) {
   addTrack({
@@ -86,11 +114,31 @@ function pick(result: { videoId: string, title: string, channel: string, thumbna
   clear()
 }
 
-// Fin d'un morceau : seul l'hôte fait autorité pour avancer la file
-// (évite que chaque client supprime le morceau en double).
-function onTrackEnded() {
-  if (isHost.value && nowPlaying.value) {
-    removeTrack(nowPlaying.value.id)
+// Import d'une playlist YouTube (jusqu'à 50 morceaux, 0 vote = fallback).
+const importing = ref(false)
+const importMsg = ref('')
+async function importPlaylist() {
+  if (!playlistId.value || importing.value) return
+  importing.value = true
+  importMsg.value = ''
+  try {
+    const list = await $fetch<{ videoId: string, title: string, channel: string, thumbnail: string }[]>(
+      '/api/playlist', { query: { id: playlistId.value } }
+    )
+    const added = await addMany(list.map(r => ({
+      title: r.title,
+      artist: r.channel,
+      cover: r.thumbnail,
+      source: 'youtube' as const,
+      externalId: r.videoId
+    })))
+    importMsg.value = added > 0 ? `${added} morceau(x) ajouté(s)` : 'Déjà dans la file'
+    clear()
+  } catch {
+    importMsg.value = 'Import impossible'
+  } finally {
+    importing.value = false
+    setTimeout(() => (importMsg.value = ''), 2500)
   }
 }
 
@@ -379,7 +427,7 @@ async function copyLink() {
             />
             <input
               v-model="search"
-              placeholder="Rechercher un son sur YouTube…"
+              placeholder="Rechercher un son ou coller une playlist…"
               class="w-full bg-transparent text-sm outline-none placeholder:text-white/40"
             >
             <button
@@ -394,6 +442,28 @@ async function copyLink() {
               />
             </button>
           </div>
+
+          <!-- URL de playlist détectée → bouton d'import (max 50, 0 vote) -->
+          <button
+            v-if="playlistId"
+            class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-black transition hover:opacity-90 disabled:opacity-60"
+            :style="{ backgroundColor: vibrantHex }"
+            :disabled="importing"
+            @click="importPlaylist"
+          >
+            <UIcon
+              :name="importing ? 'i-lucide-loader-circle' : 'i-lucide-list-plus'"
+              class="size-4"
+              :class="{ 'animate-spin': importing }"
+            />
+            {{ importing ? 'Import en cours…' : 'Importer la playlist (max 50)' }}
+          </button>
+          <p
+            v-if="importMsg"
+            class="mt-2 text-center text-xs text-white/60"
+          >
+            {{ importMsg }}
+          </p>
 
           <!-- Résultats -->
           <ul
@@ -433,9 +503,9 @@ async function copyLink() {
           </ul>
         </div>
 
-        <!-- État vide -->
+        <!-- État vide (aucun morceau à venir) -->
         <div
-          v-if="tracks.length === 0"
+          v-if="upNext.length === 0"
           class="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center"
         >
           <UIcon
@@ -443,21 +513,20 @@ async function copyLink() {
             class="size-8 text-white/25"
           />
           <p class="text-sm text-white/45">
-            La file est vide.<br>
-            Ajoutez le premier son pour lancer la fête.
+            {{ nowPlaying ? 'Rien dans la file.' : 'La file est vide.' }}<br>
+            Ajoutez un son pour la suite.
           </p>
         </div>
 
-        <!-- Liste, triée par votes -->
+        <!-- File à venir (hors morceau en cours), triée par votes -->
         <ul
           v-else
           class="mt-3 flex-1 space-y-2 overflow-y-auto"
         >
           <li
-            v-for="(track, i) in sorted"
+            v-for="(track, i) in upNext"
             :key="track.id"
-            class="flex items-center gap-3 rounded-xl p-2.5 transition"
-            :class="i === 0 ? 'bg-white/15 ring-1 ring-white/20' : 'bg-white/5'"
+            class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5 transition"
           >
             <span class="w-4 shrink-0 text-center text-sm text-white/40">{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">
