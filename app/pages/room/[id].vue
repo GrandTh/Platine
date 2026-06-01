@@ -283,7 +283,7 @@ async function copyLink() {
       class="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center"
     >
       <!-- Threads : remplissage selon la progression, seek si hôte -->
-      <div class="pointer-events-auto h-20 w-full md:h-24">
+      <div class="pointer-events-auto h-32 w-full md:h-40">
         <TimelineThreads
           :progress="progress"
           :fill-color="vibrantRgb"
