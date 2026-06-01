@@ -350,7 +350,7 @@ async function copyLink() {
       <!-- Threads : remplissage selon la progression, seek si hôte.
            Hauteur réduite pour que le ruban reste sous le vinyle, juste
            au-dessus des contrôles (l'épaisseur du trait vient du shader). -->
-      <div class="pointer-events-auto h-16 w-full md:h-20">
+      <div class="pointer-events-auto h-12 w-full md:h-14">
         <TimelineThreads
           :progress="progress"
           :fill-color="vibrantRgb"
