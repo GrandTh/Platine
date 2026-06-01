@@ -59,9 +59,8 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
   const supabase = await serverSupabaseClient<Database>(event)
 
   // 1) Cache : si la requête a déjà été faite récemment, on ressert sans
-  // toucher au quota. TTL de 30 jours → au-delà, on refait une vraie recherche
-  // (les résultats musicaux sont stables, mais on évite de figer indéfiniment).
-  const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000
+  // toucher au quota. TTL de 12 h → au-delà, on refait une vraie recherche.
+  const CACHE_TTL_MS = 12 * 60 * 60 * 1000
   const { data: cached } = await supabase
     .from('search_cache')
     .select('results, created_at')
