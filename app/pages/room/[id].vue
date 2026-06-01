@@ -580,9 +580,9 @@ async function copyLink() {
           </ul>
         </div>
 
-        <!-- État vide (aucun morceau à venir) -->
+        <!-- État vide (rien en lecture ni à venir) -->
         <div
-          v-if="panelTab === 'queue' && upNext.length === 0"
+          v-if="panelTab === 'queue' && !nowPlaying && upNext.length === 0"
           class="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center"
         >
           <UIcon
@@ -590,16 +590,51 @@ async function copyLink() {
             class="size-8 text-white/25"
           />
           <p class="text-sm text-white/45">
-            {{ nowPlaying ? 'Rien dans la file.' : 'La file est vide.' }}<br>
-            Ajoutez un son pour la suite.
+            La playlist est vide.<br>
+            Ajoutez un son pour lancer la fête.
           </p>
         </div>
 
-        <!-- File à venir (hors morceau en cours), triée par votes -->
+        <!-- Playlist : morceau en cours en tête (couleur marquée, sans vote),
+             puis la file à venir triée par votes -->
         <ul
           v-else-if="panelTab === 'queue'"
           class="mt-3 flex-1 space-y-2 overflow-y-auto"
         >
+          <!-- Morceau en lecture -->
+          <li
+            v-if="nowPlaying"
+            class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/15 transition"
+            :style="{ backgroundImage: `linear-gradient(to right, ${userColor(nowPlaying.addedBy)}b3 0%, transparent 40%)` }"
+          >
+            <UIcon
+              name="i-lucide-volume-2"
+              class="size-4 shrink-0 text-white/80"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">
+                {{ nowPlaying.title }}
+              </p>
+              <p class="truncate text-xs text-white/50">
+                {{ nowPlaying.artist || '—' }}
+              </p>
+            </div>
+            <span class="shrink-0 text-xs font-medium text-white/50">En lecture</span>
+            <!-- Retirer (auteur ou hôte) -->
+            <button
+              v-if="nowPlaying.addedBy === uid || isHost"
+              class="shrink-0 text-white/30 transition hover:text-white/80"
+              aria-label="Retirer"
+              @click="removeTrack(nowPlaying.id)"
+            >
+              <UIcon
+                name="i-lucide-x"
+                class="size-4"
+              />
+            </button>
+          </li>
+
+          <!-- File à venir -->
           <li
             v-for="(track, i) in upNext"
             :key="track.id"
