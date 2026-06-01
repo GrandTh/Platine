@@ -72,14 +72,33 @@ onBeforeRender(({ delta }) => {
   <!-- Inclinaison pour un rendu 3D ; la face "label" pointe vers la caméra (+Z) -->
   <TresGroup :rotation="[Math.PI / 2 - 0.95, 0, 0]">
     <TresGroup ref="spinRef">
-      <!-- Galette vinyle : noir métallique, capte l'environnement -->
+      <!-- Galette vinyle : noir brillant, capte l'environnement -->
       <TresMesh>
         <TresCylinderGeometry :args="[2, 2, 0.05, 96]" />
         <TresMeshStandardMaterial
           color="#0b0b0e"
-          :roughness="0.3"
+          :roughness="0.14"
           :metalness="0.9"
-          :env-map-intensity="1.2"
+          :env-map-intensity="1.8"
+        />
+      </TresMesh>
+
+      <!-- Sillons : 3 fines rainures concentriques sur la zone noire,
+           légèrement plus claires pour accrocher la lumière (texture). -->
+      <TresMesh
+        v-for="r in [1.05, 1.35, 1.62]"
+        :key="r"
+        :position="[0, 0.0255, 0]"
+        :rotation="[Math.PI / 2, 0, 0]"
+      >
+        <TresRingGeometry :args="[r, r + 0.012, 128]" />
+        <TresMeshStandardMaterial
+          color="#23232a"
+          :roughness="0.25"
+          :metalness="0.8"
+          :env-map-intensity="1.4"
+          :transparent="true"
+          :opacity="0.6"
         />
       </TresMesh>
 
