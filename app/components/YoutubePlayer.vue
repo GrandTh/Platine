@@ -11,33 +11,31 @@ const props = defineProps<{
   playing?: boolean
 }>()
 
-const emit = defineEmits<{ ended: [] }>()
+const emit = defineEmits<{
+  ended: []
+  /** Progression émise en continu : { current, duration } en secondes. */
+  progress: [payload: { current: number, duration: number }]
+}>()
 
 const host = ref<HTMLElement | null>(null)
 let player: YTPlayer | null = null
 let raf = 0
 
 const ready = ref(false)
-const current = ref(0)
-const duration = ref(0)
 const fullscreen = ref(false)
-
-const progress = computed(() => (duration.value ? current.value / duration.value : 0))
-
-function fmt(s: number) {
-  if (!Number.isFinite(s)) return '0:00'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60).toString().padStart(2, '0')
-  return `${m}:${sec}`
-}
 
 function tick() {
   if (player && ready.value) {
-    current.value = player.getCurrentTime()
-    duration.value = player.getDuration()
+    emit('progress', { current: player.getCurrentTime(), duration: player.getDuration() })
   }
   raf = requestAnimationFrame(tick)
 }
+
+/** Déplace la lecture (en secondes). Exposé au parent. */
+function seek(seconds: number) {
+  if (player && ready.value) player.seekTo(seconds, true)
+}
+defineExpose({ seek })
 
 onMounted(async () => {
   if (!host.value) return
@@ -73,8 +71,7 @@ onMounted(async () => {
 watch(() => props.videoId, (id) => {
   if (player && ready.value && id) {
     player.loadVideoById(id)
-    current.value = 0
-    duration.value = 0
+    emit('progress', { current: 0, duration: 0 })
   }
 })
 
@@ -102,7 +99,7 @@ onBeforeUnmount(() => {
     class="pointer-events-auto"
     :class="fullscreen
       ? 'fixed inset-0 z-50 flex flex-col bg-black/95 p-6 backdrop-blur-md'
-      : 'absolute bottom-6 left-6 w-72 md:bottom-10 md:left-10'"
+      : 'absolute left-6 top-20 w-64 md:left-10 md:top-24 md:w-72'"
   >
     <!-- Clip -->
     <div
@@ -152,7 +149,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <!-- Infos + timeline -->
+    <!-- Infos (titre/artiste) — la timeline est désormais en bas, plein écran -->
     <div :class="fullscreen ? 'mx-auto mt-5 w-full max-w-5xl text-white' : 'mt-3 text-white'">
       <p
         v-if="title"
@@ -168,18 +165,6 @@ onBeforeUnmount(() => {
       >
         {{ artist }}
       </p>
-
-      <!-- Barre de progression custom -->
-      <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/15">
-        <div
-          class="h-full rounded-full bg-white transition-[width] duration-300 ease-linear"
-          :style="{ width: `${progress * 100}%` }"
-        />
-      </div>
-      <div class="mt-1 flex justify-between text-[11px] tabular-nums text-white/40">
-        <span>{{ fmt(current) }}</span>
-        <span>{{ fmt(duration) }}</span>
-      </div>
     </div>
   </div>
 </template>

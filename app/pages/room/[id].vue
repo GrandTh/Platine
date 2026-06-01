@@ -13,13 +13,49 @@ const uid = useAnonId()
 
 // Cycle de vie + config réelle de la room (source/mode/hôte lus en DB).
 // Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
-const { exists, ready, source, mode, isHost, playing, togglePlaying } = useRoomLifecycle(
+const { exists, ready, source, mode, isHost, playing, togglePlaying, broadcastSeek, onSeek } = useRoomLifecycle(
   roomId.value, uid, wantHost, urlSource, urlMode
 )
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
 // File de morceaux + votes (temps réel via Supabase)
 const { tracks, sorted, nowPlaying, addTrack, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
+
+// --- Progression + seek (timeline) ---
+const playerRef = useTemplateRef<{ seek: (s: number) => void }>('playerRef')
+const current = ref(0)
+const duration = ref(0)
+const progress = computed(() => (duration.value ? current.value / duration.value : 0))
+
+function onProgress(p: { current: number, duration: number }) {
+  current.value = p.current
+  duration.value = p.duration
+}
+
+function fmt(s: number) {
+  if (!Number.isFinite(s)) return '0:00'
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60).toString().padStart(2, '0')
+  return `${m}:${sec}`
+}
+
+// Clic sur la timeline (hôte) → seek local + diffusion à tous.
+function onSeekRatio(ratio: number) {
+  if (!isHost.value || !duration.value) return
+  const seconds = ratio * duration.value
+  playerRef.value?.seek(seconds)
+  broadcastSeek(seconds)
+}
+
+// Réception d'un seek de l'hôte → on cale le player local.
+onSeek((seconds) => {
+  playerRef.value?.seek(seconds)
+})
+
+// Passer au morceau suivant (hôte) : retire le morceau en cours.
+function nextTrack() {
+  if (isHost.value && nowPlaying.value) removeTrack(nowPlaying.value.id)
+}
 
 // Recherche YouTube (débouncée, via la route serveur)
 const { query: search, results, loading: searching, clear } = useYoutubeSearch()
@@ -53,6 +89,12 @@ const hex = (key: keyof typeof palette.value) =>
 const vibrantHex = hex('vibrant')
 const lightVibrantHex = hex('lightVibrant')
 const darkMutedHex = hex('darkMuted')
+
+// Couleur d'accent en RGB 0–1 pour le shader de la timeline.
+const vibrantRgb = computed<[number, number, number]>(() => {
+  const c = palette.value.vibrant
+  return [c.r, c.g, c.b]
+})
 
 const cameraRef = shallowRef<PerspectiveCamera | null>(null)
 watch(cameraRef, cam => cam?.lookAt(0, 0, 0))
@@ -208,37 +250,23 @@ async function copyLink() {
         </div>
       </div>
 
-      <div class="pointer-events-auto flex items-center gap-2">
-        <!-- Lecture / pause (hôte uniquement) — partagé en temps réel -->
-        <button
-          v-if="isHost && nowPlaying"
-          class="grid size-10 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
-          :aria-label="playing ? 'Pause' : 'Lecture'"
-          @click="togglePlaying"
-        >
-          <UIcon
-            :name="playing ? 'i-lucide-pause' : 'i-lucide-play'"
-            class="size-5"
-          />
-        </button>
-
-        <button
-          class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
-          :style="{ backgroundColor: vibrantHex }"
-          @click="copyLink"
-        >
-          <UIcon
-            :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
-            class="size-4"
-          />
-          {{ copied ? 'Lien copié !' : 'Inviter' }}
-        </button>
-      </div>
+      <button
+        class="pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
+        :style="{ backgroundColor: vibrantHex }"
+        @click="copyLink"
+      >
+        <UIcon
+          :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
+          class="size-4"
+        />
+        {{ copied ? 'Lien copié !' : 'Inviter' }}
+      </button>
     </header>
 
     <!-- ───────── Player du morceau en lecture ───────── -->
     <YoutubePlayer
       v-if="nowPlaying"
+      ref="playerRef"
       :key="nowPlaying.id"
       :video-id="nowPlaying.externalId"
       :title="nowPlaying.title"
@@ -246,7 +274,58 @@ async function copyLink() {
       :muted="muted"
       :playing="playing"
       @ended="onTrackEnded"
+      @progress="onProgress"
     />
+
+    <!-- ───────── Timeline (Threads) pleine largeur + contrôles ───────── -->
+    <div
+      v-if="nowPlaying"
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center"
+    >
+      <!-- Threads : remplissage selon la progression, seek si hôte -->
+      <div class="pointer-events-auto h-20 w-full md:h-24">
+        <TimelineThreads
+          :progress="progress"
+          :fill-color="vibrantRgb"
+          :seekable="isHost"
+          @seek="onSeekRatio"
+        />
+      </div>
+
+      <!-- Temps -->
+      <div class="pointer-events-none -mt-2 flex w-full justify-between px-5 text-[11px] tabular-nums text-white/45 md:px-8">
+        <span>{{ fmt(current) }}</span>
+        <span>{{ fmt(duration) }}</span>
+      </div>
+
+      <!-- Contrôles centrés (hôte) : pause/play + morceau suivant -->
+      <div
+        v-if="isHost"
+        class="pointer-events-auto mt-1 mb-5 flex items-center gap-4"
+      >
+        <button
+          class="grid size-12 place-items-center rounded-full text-black shadow-lg transition hover:scale-105"
+          :style="{ backgroundColor: vibrantHex }"
+          :aria-label="playing ? 'Pause' : 'Lecture'"
+          @click="togglePlaying"
+        >
+          <UIcon
+            :name="playing ? 'i-lucide-pause' : 'i-lucide-play'"
+            class="size-6"
+          />
+        </button>
+        <button
+          class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+          aria-label="Morceau suivant"
+          @click="nextTrack"
+        >
+          <UIcon
+            name="i-lucide-skip-forward"
+            class="size-5"
+          />
+        </button>
+      </div>
+    </div>
 
     <!-- ───────── Panneau file d'attente ───────── -->
     <!-- pointer-events-none sur l'aside : sa zone transparente (haut, en

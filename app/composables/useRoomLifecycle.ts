@@ -95,7 +95,19 @@ export function useRoomLifecycle(
     timer = setInterval(heartbeat, HEARTBEAT_MS)
   }
 
-  // Suit les changements de la room (notamment `playing`) en temps réel.
+  // Callback déclenché à la réception d'un seek de l'hôte (positionné par la page).
+  let onSeekReceived: ((seconds: number) => void) | null = null
+  function onSeek(cb: (seconds: number) => void) {
+    onSeekReceived = cb
+  }
+
+  /** L'hôte diffuse un seek à tous (broadcast léger, pas de persistance). */
+  function broadcastSeek(seconds: number) {
+    if (!isHost.value || !channel) return
+    channel.send({ type: 'broadcast', event: 'seek', payload: { seconds } })
+  }
+
+  // Suit les changements de la room (`playing`) + les seeks (broadcast).
   function subscribeRoom() {
     channel = supabase
       .channel(`room-state:${roomId}`)
@@ -107,6 +119,10 @@ export function useRoomLifecycle(
           if (typeof row.playing === 'boolean') playing.value = row.playing
         }
       )
+      .on('broadcast', { event: 'seek' }, ({ payload }) => {
+        const s = (payload as { seconds?: number })?.seconds
+        if (typeof s === 'number') onSeekReceived?.(s)
+      })
       .subscribe()
   }
 
@@ -117,5 +133,8 @@ export function useRoomLifecycle(
     channel = null
   })
 
-  return { exists, ready, source: roomSource, mode: roomMode, isHost, playing, togglePlaying }
+  return {
+    exists, ready, source: roomSource, mode: roomMode, isHost,
+    playing, togglePlaying, broadcastSeek, onSeek
+  }
 }
