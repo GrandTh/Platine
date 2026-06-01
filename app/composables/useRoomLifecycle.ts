@@ -15,20 +15,17 @@
 
 const HEARTBEAT_MS = 20_000
 
-export type RoomSource = 'youtube' | 'both'
 export type RoomMode = 'speaker' | 'each'
 
 export function useRoomLifecycle(
   roomId: string,
   uid: string,
   wantHost: boolean,
-  source: RoomSource,
   mode: RoomMode
 ) {
   const supabase = useSupabaseClient()
   const exists = ref(true)
   const ready = ref(false)
-  const roomSource = ref<RoomSource>(source)
   const roomMode = ref<RoomMode>(mode)
   const isHost = ref(false)
   const playing = ref(true)
@@ -48,7 +45,6 @@ export function useRoomLifecycle(
     await supabase.from('rooms').insert({
       id: roomId,
       host_id: uid,
-      source,
       mode,
       playing: true,
       last_active: new Date().toISOString()
@@ -60,12 +56,11 @@ export function useRoomLifecycle(
   async function loadRoom() {
     const { data } = await supabase
       .from('rooms')
-      .select('host_id, source, mode, playing, current_track_id')
+      .select('host_id, mode, playing, current_track_id')
       .eq('id', roomId)
       .maybeSingle()
     if (data) {
       exists.value = true
-      roomSource.value = data.source
       roomMode.value = data.mode
       isHost.value = data.host_id === uid
       playing.value = data.playing
@@ -144,7 +139,7 @@ export function useRoomLifecycle(
   })
 
   return {
-    exists, ready, source: roomSource, mode: roomMode, isHost,
+    exists, ready, mode: roomMode, isHost,
     playing, togglePlaying, broadcastSeek, onSeek,
     currentTrackId, setCurrentTrack
   }

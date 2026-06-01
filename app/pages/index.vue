@@ -6,32 +6,20 @@ function newRoomCode() {
 }
 
 // --- Flow "Créer une room" ---
-// Étapes : mode d'écoute → sources → (connexion Spotify)
+// Une seule étape : le mode d'écoute. La source est YouTube (seule source).
 type RoomMode = 'speaker' | 'each'
 const showCreate = ref(false)
-const createStep = ref<'mode' | 'source' | 'spotify'>('mode')
-const chosenMode = ref<RoomMode>('each')
 
 function openCreate() {
-  createStep.value = 'mode'
-  chosenMode.value = 'each'
   showCreate.value = true
 }
 
-function pickMode(mode: RoomMode) {
-  chosenMode.value = mode
-  createStep.value = 'source'
-}
-
-function createRoom(source: 'youtube' | 'both') {
+function createRoom(mode: RoomMode) {
   showCreate.value = false
   const code = newRoomCode()
-  // L'intention de création (hôte + config) passe par sessionStorage, pas
-  // par l'URL : on garde une URL propre /room/CODE, partageable telle quelle.
-  sessionStorage.setItem(
-    `platine:create:${code}`,
-    JSON.stringify({ source, mode: chosenMode.value })
-  )
+  // L'intention de création (mode) passe par sessionStorage, pas par l'URL :
+  // on garde une URL propre /room/CODE, partageable telle quelle.
+  sessionStorage.setItem(`platine:create:${code}`, JSON.stringify({ mode }))
   navigateTo(`/room/${code}`)
 }
 
@@ -61,7 +49,7 @@ function joinRoom() {
     <main class="relative z-10 flex w-full max-w-2xl flex-col items-center text-center">
       <div class="mb-6 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-medium tracking-widest text-white/70 uppercase backdrop-blur-xl">
         <span class="size-2 rounded-full bg-fuchsia-400 shadow-[0_0_10px] shadow-fuchsia-400" />
-        Rooms privées · Spotify + YouTube
+        Rooms privées · YouTube
       </div>
 
       <h1 class="bg-gradient-to-br from-white via-fuchsia-200 to-cyan-200 bg-clip-text text-6xl font-black tracking-tight text-transparent sm:text-7xl">
@@ -95,155 +83,78 @@ function joinRoom() {
       @click.self="showCreate = false"
     >
       <div class="w-full max-w-md rounded-3xl border border-white/15 bg-white/10 p-6 text-white shadow-2xl backdrop-blur-2xl">
-        <!-- Étape 1 : mode d'écoute -->
-        <template v-if="createStep === 'mode'">
-          <h2 class="text-xl font-bold">
-            Comment vous écoutez ?
-          </h2>
-          <p class="mt-1 text-sm text-white/55">
-            Tout le monde voit le clip. Seul le son change selon le mode.
-          </p>
+        <h2 class="text-xl font-bold">
+          Comment vous écoutez ?
+        </h2>
+        <p class="mt-1 text-sm text-white/55">
+          Tout le monde voit le clip. Seul le son change selon le mode.
+        </p>
 
-          <div class="mt-5 grid grid-cols-2 gap-3">
-            <!-- Même pièce -->
-            <button
-              class="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
-              @click="pickMode('speaker')"
-            >
-              <span class="relative grid h-16 w-full place-items-center">
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <!-- Même pièce -->
+          <button
+            class="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
+            @click="createRoom('speaker')"
+          >
+            <span class="relative grid h-16 w-full place-items-center">
+              <UIcon
+                name="i-lucide-volume-2"
+                class="size-8 text-fuchsia-300"
+              />
+              <span class="absolute -bottom-1 flex gap-0.5">
                 <UIcon
-                  name="i-lucide-volume-2"
-                  class="size-8 text-fuchsia-300"
+                  name="i-lucide-user"
+                  class="size-3.5 text-white/50"
                 />
-                <span class="absolute -bottom-1 flex gap-0.5">
-                  <UIcon
-                    name="i-lucide-user"
-                    class="size-3.5 text-white/50"
-                  />
-                  <UIcon
-                    name="i-lucide-user"
-                    class="size-3.5 text-white/50"
-                  />
-                  <UIcon
-                    name="i-lucide-user"
-                    class="size-3.5 text-white/50"
-                  />
-                </span>
+                <UIcon
+                  name="i-lucide-user"
+                  class="size-3.5 text-white/50"
+                />
+                <UIcon
+                  name="i-lucide-user"
+                  class="size-3.5 text-white/50"
+                />
               </span>
-              <span>
-                <span class="block text-sm font-semibold">Même pièce</span>
-                <span class="mt-0.5 block text-xs text-white/50">Une seule enceinte (l'hôte). Idéal entre potes au même endroit.</span>
-              </span>
-            </button>
-
-            <!-- Chacun son ordi -->
-            <button
-              class="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
-              @click="pickMode('each')"
-            >
-              <span class="relative grid h-16 w-full place-items-center">
-                <span class="flex gap-1.5">
-                  <UIcon
-                    name="i-lucide-laptop"
-                    class="size-6 text-cyan-300"
-                  />
-                  <UIcon
-                    name="i-lucide-laptop"
-                    class="size-6 text-cyan-300"
-                  />
-                </span>
-                <span class="absolute -bottom-1 flex gap-2">
-                  <UIcon
-                    name="i-lucide-volume-1"
-                    class="size-3.5 text-white/50"
-                  />
-                  <UIcon
-                    name="i-lucide-volume-1"
-                    class="size-3.5 text-white/50"
-                  />
-                </span>
-              </span>
-              <span>
-                <span class="block text-sm font-semibold">Chacun son ordi</span>
-                <span class="mt-0.5 block text-xs text-white/50">Le son sur chaque appareil, synchronisé. À distance.</span>
-              </span>
-            </button>
-          </div>
-        </template>
-
-        <!-- Étape 2 : choix des sources -->
-        <template v-else-if="createStep === 'source'">
-          <button
-            class="mb-4 text-sm text-white/50 transition hover:text-white"
-            @click="createStep = 'mode'"
-          >
-            ← Retour
+            </span>
+            <span>
+              <span class="block text-sm font-semibold">Même pièce</span>
+              <span class="mt-0.5 block text-xs text-white/50">Une seule enceinte (l'hôte). Idéal entre potes au même endroit.</span>
+            </span>
           </button>
-          <h2 class="text-xl font-bold">
-            Quelles sources musicales ?
-          </h2>
-          <p class="mt-1 text-sm text-white/55">
-            Tu pourras chercher des morceaux depuis ces plateformes.
-          </p>
 
-          <div class="mt-5 flex flex-col gap-3">
-            <button
-              class="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-white/30 hover:bg-white/10"
-              @click="createRoom('youtube')"
-            >
-              <UIcon
-                name="i-simple-icons-youtube"
-                class="size-7 shrink-0 text-red-500"
-              />
-              <span class="flex-1">
-                <span class="block font-semibold">YouTube uniquement</span>
-                <span class="block text-sm text-white/55">Gratuit, aucun compte requis pour personne.</span>
-              </span>
-            </button>
-
-            <button
-              class="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-white/30 hover:bg-white/10"
-              @click="createStep = 'spotify'"
-            >
-              <UIcon
-                name="i-simple-icons-spotify"
-                class="size-7 shrink-0 text-green-500"
-              />
-              <span class="flex-1">
-                <span class="block font-semibold">Spotify + YouTube</span>
-                <span class="block text-sm text-white/55">Plus large catalogue. Connexion de ton compte requise.</span>
-              </span>
-            </button>
-          </div>
-        </template>
-
-        <!-- Étape 3 : connexion Spotify -->
-        <template v-else>
+          <!-- Chacun son ordi -->
           <button
-            class="mb-4 text-sm text-white/50 transition hover:text-white"
-            @click="createStep = 'source'"
+            class="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
+            @click="createRoom('each')"
           >
-            ← Retour
+            <span class="relative grid h-16 w-full place-items-center">
+              <span class="flex gap-1.5">
+                <UIcon
+                  name="i-lucide-laptop"
+                  class="size-6 text-cyan-300"
+                />
+                <UIcon
+                  name="i-lucide-laptop"
+                  class="size-6 text-cyan-300"
+                />
+              </span>
+              <span class="absolute -bottom-1 flex gap-2">
+                <UIcon
+                  name="i-lucide-volume-1"
+                  class="size-3.5 text-white/50"
+                />
+                <UIcon
+                  name="i-lucide-volume-1"
+                  class="size-3.5 text-white/50"
+                />
+              </span>
+            </span>
+            <span>
+              <span class="block text-sm font-semibold">Chacun son ordi</span>
+              <span class="mt-0.5 block text-xs text-white/50">Le son sur chaque appareil, synchronisé. À distance.</span>
+            </span>
           </button>
-          <h2 class="text-xl font-bold">
-            Connecte ton compte Spotify
-          </h2>
-          <p class="mt-1 text-sm text-white/55">
-            En tant qu'hôte, ton compte permet aux invités de rechercher des morceaux.
-            Tes identifiants ne sont jamais partagés.
-          </p>
-
-          <button
-            class="mt-5 flex w-full items-center justify-center gap-3 rounded-full bg-green-500 px-6 py-3.5 font-semibold text-black transition hover:bg-green-400"
-            @click="createRoom('both')"
-          >
-            <UIcon
-              name="i-simple-icons-spotify"
-              class="size-5"
-            />
-            Se connecter à Spotify
-          </button>
-        </template>
+        </div>
       </div>
     </div>
 

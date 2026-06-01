@@ -12,7 +12,7 @@ useHead({
 })
 
 const title = 'Platine — Écoutez ensemble'
-const description = 'Créez une room privée, ajoutez vos sons dans une file partagée et écoutez ensemble. Spotify + YouTube.'
+const description = 'Créez une room privée, ajoutez vos sons dans une file partagée et écoutez ensemble.'
 
 useSeoMeta({
   title,

@@ -8,7 +8,7 @@ const roomId = computed(() => String(route.params.id).toUpperCase())
 // l'URL → URL propre /room/CODE). Présente uniquement chez le créateur ;
 // consommée une fois (un refresh ne recrée pas la room — elle est déjà en DB).
 const createKey = `platine:create:${roomId.value}`
-let intent: { source?: 'youtube' | 'both', mode?: 'speaker' | 'each' } = {}
+let intent: { mode?: 'speaker' | 'each' } = {}
 if (import.meta.client) {
   const raw = sessionStorage.getItem(createKey)
   if (raw) {
@@ -20,18 +20,17 @@ if (import.meta.client) {
     sessionStorage.removeItem(createKey)
   }
 }
-const wantHost = !!(intent.source || intent.mode)
-const urlSource = intent.source === 'both' ? 'both' : 'youtube'
+const wantHost = !!intent.mode
 const urlMode = intent.mode === 'speaker' ? 'speaker' : 'each'
 
 const uid = useAnonId()
 
-// Cycle de vie + config réelle de la room (source/mode/hôte lus en DB).
+// Cycle de vie + config réelle de la room (mode/hôte lus en DB).
 // Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
 const {
-  exists, ready, source, mode, isHost, playing, togglePlaying,
+  exists, ready, mode, isHost, playing, togglePlaying,
   broadcastSeek, onSeek, currentTrackId, setCurrentTrack
-} = useRoomLifecycle(roomId.value, uid, wantHost, urlSource, urlMode)
+} = useRoomLifecycle(roomId.value, uid, wantHost, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
 // File de morceaux + votes (temps réel via Supabase)
@@ -283,22 +282,6 @@ async function copyLink() {
           />
           <span class="text-sm font-semibold tracking-[0.2em]">{{ roomId }}</span>
           <span class="text-xs text-white/45">· privée</span>
-        </div>
-
-        <!-- Sources actives (hôte) -->
-        <div
-          v-if="source"
-          class="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-xl"
-        >
-          <UIcon
-            name="i-simple-icons-youtube"
-            class="size-4 text-red-500"
-          />
-          <UIcon
-            v-if="source === 'both'"
-            name="i-simple-icons-spotify"
-            class="size-4 text-green-500"
-          />
         </div>
 
         <!-- Mode d'écoute -->
