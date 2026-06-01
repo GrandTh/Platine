@@ -127,8 +127,13 @@ onBeforeUnmount(() => {
         ? 'flex items-center justify-center'
         : 'aspect-video rounded-2xl border border-white/15'"
     >
-      <!-- Conteneur monté par l'API YouTube (remplacé par une iframe) -->
-      <div :class="fullscreen ? 'aspect-video h-full max-h-full w-full max-w-full' : 'size-full'">
+      <!-- Conteneur monté par l'API YouTube (remplacé par une iframe).
+           pointer-events-none : YouTube ne reçoit jamais la souris → pas
+           d'overlay de lecture/pause au survol. -->
+      <div
+        class="pointer-events-none"
+        :class="fullscreen ? 'aspect-video h-full max-h-full w-full max-w-full' : 'size-full'"
+      >
         <div
           ref="host"
           class="size-full"
