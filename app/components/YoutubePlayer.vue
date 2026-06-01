@@ -120,15 +120,10 @@ onBeforeUnmount(() => {
       <button
         v-if="!fullscreen"
         type="button"
-        class="absolute inset-0 z-10 grid w-full cursor-zoom-in place-items-center bg-black/0 transition hover:bg-black/30"
+        class="absolute inset-0 z-10 w-full cursor-zoom-in bg-transparent"
         aria-label="Passer en plein écran"
         @click="fullscreen = true"
-      >
-        <UIcon
-          name="i-lucide-maximize-2"
-          class="size-6 text-white opacity-0 transition group-hover:opacity-100"
-        />
-      </button>
+      />
       <div
         v-else
         class="absolute inset-0 z-0"
