@@ -81,7 +81,22 @@ export function useQueue(roomId: string, uid: string) {
 
   // --- Mutations (optimistes + persistées) ---
 
-  async function addTrack(track: NewTrack) {
+  /**
+   * Ajoute un morceau — sauf s'il est déjà dans la file (même source +
+   * external_id). Dans ce cas on vote pour l'existant plutôt que de créer
+   * un doublon. Renvoie 'added' ou 'voted' pour informer l'UI.
+   */
+  async function addTrack(track: NewTrack): Promise<'added' | 'voted'> {
+    const existing = rows.value.find(
+      r => r.source === track.source && r.external_id === track.externalId
+    )
+    if (existing) {
+      if (!(votesByTrack.value[existing.id] ?? []).includes(uid)) {
+        await supabase.from('votes').insert({ track_id: existing.id, voter_id: uid })
+      }
+      return 'voted'
+    }
+
     const { data, error } = await supabase
       .from('tracks')
       .insert({
@@ -96,9 +111,15 @@ export function useQueue(roomId: string, uid: string) {
       .select()
       .single()
 
-    if (error || !data) return
+    if (error || !data) return 'added'
     // L'ajout vaut un vote pour soi-même.
     await supabase.from('votes').insert({ track_id: (data as DbTrack).id, voter_id: uid })
+    return 'added'
+  }
+
+  /** Le morceau (source + external_id) est-il déjà dans la file ? */
+  function isQueued(source: 'youtube' | 'spotify', externalId: string) {
+    return rows.value.some(r => r.source === source && r.external_id === externalId)
   }
 
   async function toggleVote(trackId: string) {
@@ -173,6 +194,7 @@ export function useQueue(roomId: string, uid: string) {
     addTrack,
     toggleVote,
     removeTrack,
-    hasVoted
+    hasVoted,
+    isQueued
   }
 }

@@ -5,6 +5,10 @@ const props = defineProps<{
   videoId: string | null
   title?: string
   artist?: string
+  /** Vidéo muette (mode "même pièce" pour les invités). Permet l'autoplay. */
+  muted?: boolean
+  /** État lecture/pause partagé de la room. */
+  playing?: boolean
 }>()
 
 const emit = defineEmits<{ ended: [] }>()
@@ -41,11 +45,21 @@ onMounted(async () => {
 
   player = new YT.Player(host.value, {
     videoId: props.videoId ?? undefined,
-    playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0, playsinline: 1 },
+    playerVars: {
+      autoplay: 1,
+      controls: 0,
+      modestbranding: 1,
+      rel: 0,
+      playsinline: 1,
+      mute: props.muted ? 1 : 0
+    },
     events: {
       onReady: (e: { target: YTPlayer }) => {
         ready.value = true
-        e.target.playVideo()
+        if (props.muted) e.target.mute()
+        else e.target.unMute()
+        if (props.playing !== false) e.target.playVideo()
+        else e.target.pauseVideo()
       },
       onStateChange: (e: { data: number }) => {
         if (e.data === YT.PlayerState.ENDED) emit('ended')
@@ -62,6 +76,18 @@ watch(() => props.videoId, (id) => {
     current.value = 0
     duration.value = 0
   }
+})
+
+watch(() => props.muted, (m) => {
+  if (!player || !ready.value) return
+  if (m) player.mute()
+  else player.unMute()
+})
+
+watch(() => props.playing, (p) => {
+  if (!player || !ready.value) return
+  if (p === false) player.pauseVideo()
+  else player.playVideo()
 })
 
 onBeforeUnmount(() => {
@@ -81,8 +107,7 @@ onBeforeUnmount(() => {
     <!-- Clip -->
     <div
       class="group relative overflow-hidden rounded-2xl border border-white/15 bg-black shadow-2xl"
-      :class="fullscreen ? 'mx-auto aspect-video w-full max-w-5xl flex-1' : 'aspect-video cursor-zoom-in'"
-      @click="!fullscreen && (fullscreen = true)"
+      :class="fullscreen ? 'mx-auto aspect-video w-full max-w-5xl flex-1' : 'aspect-video'"
     >
       <!-- Conteneur monté par l'API YouTube (remplacé par une iframe) -->
       <div class="size-full">
@@ -92,21 +117,31 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <!-- Voile + loupe au survol (mode coin) -->
-      <div
+      <!-- Capteur de clic au-dessus de l'iframe : empêche YouTube de recevoir
+           le clic (sinon clic = pause). En mode coin, il ouvre le plein écran ;
+           en plein écran, il neutralise juste le clic (pas de pause accidentelle). -->
+      <button
         v-if="!fullscreen"
-        class="pointer-events-none absolute inset-0 grid place-items-center bg-black/0 transition group-hover:bg-black/30"
+        type="button"
+        class="absolute inset-0 z-10 grid w-full cursor-zoom-in place-items-center bg-black/0 transition hover:bg-black/30"
+        aria-label="Passer en plein écran"
+        @click="fullscreen = true"
       >
         <UIcon
           name="i-lucide-maximize-2"
           class="size-6 text-white opacity-0 transition group-hover:opacity-100"
         />
-      </div>
+      </button>
+      <div
+        v-else
+        class="absolute inset-0 z-0"
+        aria-hidden="true"
+      />
 
       <!-- Fermer le plein écran -->
       <button
         v-if="fullscreen"
-        class="absolute top-3 right-3 z-10 grid size-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+        class="absolute top-3 right-3 z-20 grid size-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
         aria-label="Quitter le plein écran"
         @click.stop="fullscreen = false"
       >

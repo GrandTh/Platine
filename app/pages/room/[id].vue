@@ -3,18 +3,23 @@ import type { PerspectiveCamera } from 'three'
 
 const route = useRoute()
 const roomId = computed(() => String(route.params.id).toUpperCase())
-const isHost = computed(() => route.query.host === '1')
-const source = computed<'youtube' | 'both' | null>(() => {
-  const s = route.query.source
-  return s === 'youtube' || s === 'both' ? s : null
-})
+
+// Intentions venues de l'URL (uniquement à la création par l'hôte).
+const wantHost = route.query.host === '1'
+const urlSource = route.query.source === 'both' ? 'both' : 'youtube'
+const urlMode = route.query.mode === 'speaker' ? 'speaker' : 'each'
+
+const uid = useAnonId()
+
+// Cycle de vie + config réelle de la room (source/mode/hôte lus en DB).
+// Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
+const { exists, ready, source, mode, isHost, playing, togglePlaying } = useRoomLifecycle(
+  roomId.value, uid, wantHost, urlSource, urlMode
+)
+const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
 // File de morceaux + votes (temps réel via Supabase)
-const uid = useAnonId()
-const { tracks, sorted, nowPlaying, addTrack, toggleVote, removeTrack, hasVoted } = useQueue(roomId.value, uid)
-
-// Cycle de vie de la room (heartbeat hôte + existence pour invité)
-const { exists } = useRoomLifecycle(roomId.value, uid, isHost.value, source.value ?? 'youtube')
+const { tracks, sorted, nowPlaying, addTrack, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
 
 // Recherche YouTube (débouncée, via la route serveur)
 const { query: search, results, loading: searching, clear } = useYoutubeSearch()
@@ -52,10 +57,33 @@ const darkMutedHex = hex('darkMuted')
 const cameraRef = shallowRef<PerspectiveCamera | null>(null)
 watch(cameraRef, cam => cam?.lookAt(0, 0, 0))
 
-// Copier le lien d'invitation
+// Copier le lien d'invitation — URL propre (code seul), sans les paramètres
+// host/source/mode : les invités ne doivent pas hériter du rôle d'hôte.
 const copied = ref(false)
 async function copyLink() {
-  await navigator.clipboard.writeText(window.location.href)
+  const url = `${window.location.origin}/room/${roomId.value}`
+  try {
+    // clipboard API : nécessite un contexte sécurisé (https/localhost).
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url)
+    } else {
+      throw new Error('clipboard indisponible')
+    }
+  } catch {
+    // Fallback universel : textarea hors-écran + execCommand('copy').
+    const ta = document.createElement('textarea')
+    ta.value = url
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      document.execCommand('copy')
+    } catch {
+      // ignoré : au pire l'utilisateur copie le lien à la main
+    }
+    document.body.removeChild(ta)
+  }
   copied.value = true
   setTimeout(() => (copied.value = false), 1800)
 }
@@ -64,7 +92,7 @@ async function copyLink() {
 <template>
   <!-- Room introuvable (invité arrivant sur une room fermée/expirée) -->
   <div
-    v-if="!exists"
+    v-if="ready && !exists"
     class="grid h-dvh w-full place-items-center bg-[#070510] px-6 text-center text-white"
   >
     <div>
@@ -109,6 +137,7 @@ async function copyLink() {
         :cover-src="coverSrc"
         :accent="vibrantHex"
         :speed="0.4"
+        :playing="playing && !!nowPlaying"
       />
 
       <TresAmbientLight :intensity="0.35" />
@@ -166,19 +195,45 @@ async function copyLink() {
             class="size-4 text-green-500"
           />
         </div>
+
+        <!-- Mode d'écoute -->
+        <div class="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-xl">
+          <UIcon
+            :name="mode === 'speaker' ? 'i-lucide-volume-2' : 'i-lucide-laptop'"
+            class="size-4 text-white/70"
+          />
+          <span class="hidden text-xs text-white/60 sm:inline">
+            {{ mode === 'speaker' ? 'Même pièce' : 'Chacun son ordi' }}
+          </span>
+        </div>
       </div>
 
-      <button
-        class="pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
-        :style="{ backgroundColor: vibrantHex }"
-        @click="copyLink"
-      >
-        <UIcon
-          :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
-          class="size-4"
-        />
-        {{ copied ? 'Lien copié !' : 'Inviter' }}
-      </button>
+      <div class="pointer-events-auto flex items-center gap-2">
+        <!-- Lecture / pause (hôte uniquement) — partagé en temps réel -->
+        <button
+          v-if="isHost && nowPlaying"
+          class="grid size-10 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+          :aria-label="playing ? 'Pause' : 'Lecture'"
+          @click="togglePlaying"
+        >
+          <UIcon
+            :name="playing ? 'i-lucide-pause' : 'i-lucide-play'"
+            class="size-5"
+          />
+        </button>
+
+        <button
+          class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
+          :style="{ backgroundColor: vibrantHex }"
+          @click="copyLink"
+        >
+          <UIcon
+            :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
+            class="size-4"
+          />
+          {{ copied ? 'Lien copié !' : 'Inviter' }}
+        </button>
+      </div>
     </header>
 
     <!-- ───────── Player du morceau en lecture ───────── -->
@@ -188,6 +243,8 @@ async function copyLink() {
       :video-id="nowPlaying.externalId"
       :title="nowPlaying.title"
       :artist="nowPlaying.artist"
+      :muted="muted"
+      :playing="playing"
       @ended="onTrackEnded"
     />
 
@@ -249,7 +306,14 @@ async function copyLink() {
                   <span class="block truncate text-sm font-medium">{{ r.title }}</span>
                   <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
                 </span>
+                <!-- Déjà dans la file → on propose un vote, pas un doublon -->
                 <UIcon
+                  v-if="isQueued('youtube', r.videoId)"
+                  name="i-lucide-arrow-big-up"
+                  class="size-4 shrink-0 text-fuchsia-400"
+                />
+                <UIcon
+                  v-else
                   name="i-lucide-plus"
                   class="size-4 shrink-0 text-white/40"
                 />

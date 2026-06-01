@@ -17,6 +17,9 @@ create table if not exists public.rooms (
   host_id     text not null,                       -- id anonyme du créateur (permissions)
   source      text not null default 'youtube'
                 check (source in ('youtube', 'both')),
+  mode        text not null default 'each'
+                check (mode in ('speaker', 'each')),
+  playing     boolean not null default true,
   last_active timestamptz not null default now(),
   created_at  timestamptz not null default now()
 );

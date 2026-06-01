@@ -9,6 +9,8 @@ export type Database = {
           id: string
           host_id: string
           source: 'youtube' | 'both'
+          mode: 'speaker' | 'each'
+          playing: boolean
           last_active: string
           created_at: string
         }
@@ -16,6 +18,8 @@ export type Database = {
           id: string
           host_id: string
           source?: 'youtube' | 'both'
+          mode?: 'speaker' | 'each'
+          playing?: boolean
           last_active?: string
           created_at?: string
         }
@@ -23,6 +27,8 @@ export type Database = {
           id?: string
           host_id?: string
           source?: 'youtube' | 'both'
+          mode?: 'speaker' | 'each'
+          playing?: boolean
           last_active?: string
           created_at?: string
         }

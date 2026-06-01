@@ -9,9 +9,12 @@ const props = withDefaults(defineProps<{
   accent?: string
   /** Tours par seconde visuels (stylisé) */
   speed?: number
+  /** En lecture : le disque tourne ; en pause : il ralentit jusqu'à l'arrêt */
+  playing?: boolean
 }>(), {
   accent: '#7c5cff',
-  speed: 0.4
+  speed: 0.4,
+  playing: true
 })
 
 // --- Texture de la pochette ---
@@ -47,12 +50,20 @@ function loadCover(src: string) {
 watch(() => props.coverSrc, loadCover, { immediate: true })
 onBeforeUnmount(() => cover.value?.dispose())
 
-// --- Rotation du disque ---
+// --- Rotation du disque, avec inertie ---
+// La vitesse courante tend doucement vers la vitesse cible (0 en pause),
+// d'où l'effet "le disque ralentit/accélère progressivement".
 const spinRef = shallowRef<Group | null>(null)
+let currentSpeed = 0
+const RAMP = 1.8 // plus grand = ralentit/accélère plus vite
+
 const { onBeforeRender } = useLoop()
 onBeforeRender(({ delta }) => {
+  const target = props.playing ? props.speed : 0
+  // Lissage exponentiel, stable quel que soit le framerate.
+  currentSpeed += (target - currentSpeed) * Math.min(1, delta * RAMP)
   if (spinRef.value) {
-    spinRef.value.rotation.y += delta * props.speed * Math.PI * 2
+    spinRef.value.rotation.y += delta * currentSpeed * Math.PI * 2
   }
 })
 </script>
