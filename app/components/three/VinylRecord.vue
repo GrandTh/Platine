@@ -57,6 +57,25 @@ const spinRef = shallowRef<Group | null>(null)
 let currentSpeed = 0
 const RAMP = 1.8 // plus grand = ralentit/accélère plus vite
 
+// --- Léger tilt vers le curseur ---
+// Le disque reste centré mais s'oriente très subtilement vers la souris.
+const tiltRef = shallowRef<Group | null>(null)
+const BASE_X = Math.PI / 2 - 0.95
+const TILT = 0.12 // amplitude max (radians) — discret
+const targetTilt = { x: 0, y: 0 }
+const curTilt = { x: 0, y: 0 }
+
+function onMouseMove(e: MouseEvent) {
+  // -1..1 par rapport au centre de l'écran
+  const nx = (e.clientX / window.innerWidth) * 2 - 1
+  const ny = (e.clientY / window.innerHeight) * 2 - 1
+  targetTilt.y = nx * TILT
+  targetTilt.x = ny * TILT
+}
+
+onMounted(() => window.addEventListener('mousemove', onMouseMove))
+onBeforeUnmount(() => window.removeEventListener('mousemove', onMouseMove))
+
 const { onBeforeRender } = useLoop()
 onBeforeRender(({ delta }) => {
   const target = props.playing ? props.speed : 0
@@ -65,22 +84,34 @@ onBeforeRender(({ delta }) => {
   if (spinRef.value) {
     spinRef.value.rotation.y += delta * currentSpeed * Math.PI * 2
   }
+
+  // Tilt lissé vers la cible.
+  const k = Math.min(1, delta * 4)
+  curTilt.x += (targetTilt.x - curTilt.x) * k
+  curTilt.y += (targetTilt.y - curTilt.y) * k
+  if (tiltRef.value) {
+    tiltRef.value.rotation.x = BASE_X + curTilt.x
+    tiltRef.value.rotation.z = curTilt.y
+  }
 })
 </script>
 
 <template>
-  <!-- Inclinaison pour un rendu 3D ; la face "label" pointe vers la caméra (+Z) -->
-  <TresGroup :rotation="[Math.PI / 2 - 0.95, 0, 0]">
+  <!-- Inclinaison de base + léger tilt vers le curseur (piloté dans la boucle) -->
+  <TresGroup
+    ref="tiltRef"
+    :rotation="[BASE_X, 0, 0]"
+  >
     <TresGroup ref="spinRef">
-      <!-- Galette vinyle : noir mat, capte légèrement l'environnement.
-           env-map-intensity bas → pas de gros reflet diffus disgracieux. -->
+      <!-- Galette vinyle : noir profond et brillant. roughness très bas →
+           reflet net facon miroir (et non un gros halo flou). -->
       <TresMesh>
         <TresCylinderGeometry :args="[2, 2, 0.05, 96]" />
         <TresMeshStandardMaterial
-          color="#0b0b0e"
-          :roughness="0.5"
-          :metalness="0.7"
-          :env-map-intensity="0.5"
+          color="#050507"
+          :roughness="0.08"
+          :metalness="1"
+          :env-map-intensity="1"
         />
       </TresMesh>
 
@@ -107,7 +138,7 @@ onBeforeRender(({ delta }) => {
           :color="accent"
           :roughness="0.1"
           :metalness="1"
-          :env-map-intensity="1.5"
+          :env-map-intensity="1"
         />
       </TresMesh>
 
