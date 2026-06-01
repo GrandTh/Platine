@@ -33,8 +33,8 @@ let program: Program | null = null
 let mesh: Mesh | null = null
 let animationId: number | null = null
 
-// Amplitude lissée : cible 0.5 au repos, 0 au survol.
-const AMP_IDLE = 0.5
+// Amplitude lissée : cible 1 au repos, 0 au survol.
+const AMP_IDLE = 1.5
 let targetAmp = AMP_IDLE
 let currentAmp = AMP_IDLE
 
@@ -63,8 +63,8 @@ uniform vec2 uMouse;
 #define PI 3.1415926538
 
 const int u_line_count = 20;
-const float u_line_width = 26.0;
-const float u_line_blur = 28.0;
+const float u_line_width = 60.0;
+const float u_line_blur = 34.0;
 
 float Perlin2D(vec2 P) {
     vec2 Pi = floor(P);
