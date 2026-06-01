@@ -34,7 +34,7 @@ let mesh: Mesh | null = null
 let animationId: number | null = null
 
 // Amplitude lissée : cible 1 au repos, 0 au survol.
-const AMP_IDLE = 1.5
+const AMP_IDLE = 2
 let targetAmp = AMP_IDLE
 let currentAmp = AMP_IDLE
 
