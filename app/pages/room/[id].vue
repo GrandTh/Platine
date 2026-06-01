@@ -360,7 +360,7 @@ async function copyLink() {
       </div>
 
       <!-- Temps -->
-      <div class="pointer-events-none -mt-2 flex w-full justify-between px-5 text-[11px] tabular-nums text-white/45 md:px-8">
+      <div class="pointer-events-none mt-2 flex w-full justify-between px-5 text-[11px] tabular-nums text-white/45 md:px-8">
         <span>{{ fmt(current) }}</span>
         <span>{{ fmt(duration) }}</span>
       </div>
