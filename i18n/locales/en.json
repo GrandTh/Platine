@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "title": "Platine — Listen together",
+    "description": "Create a private room, add your tracks to a shared queue and listen together."
+  },
+  "home": {
+    "badge": "Private rooms · YouTube",
+    "tagline": "One room, one shared queue. Add your tracks, vote, and listen together in real time.",
+    "create": "Create a room",
+    "join": "Join a room"
+  },
+  "createModal": {
+    "title": "How are you listening?",
+    "subtitle": "Everyone sees the clip. Only the sound changes depending on the mode.",
+    "speakerTitle": "Same room",
+    "speakerDesc": "A single speaker (the host). Perfect with friends in the same place.",
+    "eachTitle": "Each on their device",
+    "eachDesc": "Sound on every device, synced. Remotely."
+  },
+  "joinModal": {
+    "title": "Join a room",
+    "subtitle": "Enter the code shared by the host.",
+    "placeholder": "e.g. AB23CD",
+    "submit": "Join"
+  },
+  "room": {
+    "home": "Home",
+    "private": "· private",
+    "modeSpeaker": "Same room",
+    "modeEach": "Each on their device",
+    "invite": "Invite",
+    "linkCopied": "Link copied!",
+    "fullscreen": "Fullscreen",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next track",
+    "notFoundTitle": "Room not found",
+    "notFoundText": "This room doesn't exist or was closed by its host.",
+    "backHome": "Back to home",
+    "joinListen": "Join the session"
+  },
+  "panel": {
+    "playlist": "Playlist",
+    "members": "Members",
+    "searchPlaceholder": "Search (Enter) or paste a playlist…",
+    "clear": "Clear",
+    "importPlaylist": "Import playlist (max 50)",
+    "importing": "Importing…",
+    "imported": "{count} track(s) added",
+    "alreadyQueued": "Already in the queue",
+    "importError": "Import failed",
+    "emptyTitle": "The playlist is empty.",
+    "emptySubtitle": "Add a track to start the party.",
+    "nowPlaying": "Now playing",
+    "remove": "Remove",
+    "you": "(you)",
+    "renameAria": "Change my name",
+    "isHost": "You are the host of this room.",
+    "isGuest": "You joined this room."
+  }
+}

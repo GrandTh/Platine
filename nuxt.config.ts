@@ -4,7 +4,8 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/ui',
     '@tresjs/nuxt',
-    '@nuxtjs/supabase'
+    '@nuxtjs/supabase',
+    '@nuxtjs/i18n'
   ],
 
   devtools: {
@@ -34,6 +35,22 @@ export default defineNuxtConfig({
         commaDangle: 'never',
         braceStyle: '1tbs'
       }
+    }
+  },
+
+  // Internationalisation : FR (défaut) + EN. Langue détectée puis mémorisée
+  // dans un cookie. Pas de préfixe d'URL (/fr, /en) → URLs inchangées.
+  i18n: {
+    locales: [
+      { code: 'fr', name: 'Français', file: 'fr.json' },
+      { code: 'en', name: 'English', file: 'en.json' }
+    ],
+    defaultLocale: 'fr',
+    strategy: 'no_prefix',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'platine_lang',
+      redirectOn: 'root'
     }
   },
 

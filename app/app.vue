@@ -1,4 +1,7 @@
 <script setup>
+const { t, locale } = useI18n()
+const ogImage = 'https://platine.live/og.png'
+
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
@@ -7,20 +10,17 @@ useHead({
     { rel: 'icon', type: 'image/png', href: '/vinyl.png' }
   ],
   htmlAttrs: {
-    lang: 'fr'
+    // se met à jour avec la langue choisie
+    lang: () => locale.value
   }
 })
 
-const title = 'Platine — Écoutez ensemble'
-const description = 'Créez une room privée, ajoutez vos sons dans une file partagée et écoutez ensemble.'
-// URL absolue requise pour les images OG (les plateformes ne lisent pas les chemins relatifs)
-const ogImage = 'https://platine.live/og.png'
-
+// Getters → les meta se mettent à jour au changement de langue.
 useSeoMeta({
-  title,
-  description,
-  ogTitle: title,
-  ogDescription: description,
+  title: () => t('meta.title'),
+  description: () => t('meta.description'),
+  ogTitle: () => t('meta.title'),
+  ogDescription: () => t('meta.description'),
   ogImage,
   ogType: 'website',
   ogUrl: 'https://platine.live',

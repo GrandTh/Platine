@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "title": "Platine — Écoutez ensemble",
+    "description": "Créez une room privée, ajoutez vos sons dans une file partagée et écoutez ensemble."
+  },
+  "home": {
+    "badge": "Rooms privées · YouTube",
+    "tagline": "Une room, une file partagée. Ajoutez vos sons, votez, et écoutez ensemble en temps réel.",
+    "create": "Créer une room",
+    "join": "Rejoindre une room"
+  },
+  "createModal": {
+    "title": "Comment vous écoutez ?",
+    "subtitle": "Tout le monde voit le clip. Seul le son change selon le mode.",
+    "speakerTitle": "Même pièce",
+    "speakerDesc": "Une seule enceinte (l'hôte). Idéal entre potes au même endroit.",
+    "eachTitle": "Chacun son ordi",
+    "eachDesc": "Le son sur chaque appareil, synchronisé. À distance."
+  },
+  "joinModal": {
+    "title": "Rejoindre une room",
+    "subtitle": "Entre le code que t'a partagé l'hôte.",
+    "placeholder": "ex. AB23CD",
+    "submit": "Rejoindre"
+  },
+  "room": {
+    "home": "Accueil",
+    "private": "· privée",
+    "modeSpeaker": "Même pièce",
+    "modeEach": "Chacun son ordi",
+    "invite": "Inviter",
+    "linkCopied": "Lien copié !",
+    "fullscreen": "Plein écran",
+    "play": "Lecture",
+    "pause": "Pause",
+    "next": "Morceau suivant",
+    "notFoundTitle": "Room introuvable",
+    "notFoundText": "Cette room n'existe pas ou a été fermée par son hôte.",
+    "backHome": "Retour à l'accueil",
+    "joinListen": "Rejoindre l'écoute"
+  },
+  "panel": {
+    "playlist": "Playlist",
+    "members": "Membres",
+    "searchPlaceholder": "Rechercher (Entrée) ou coller une playlist…",
+    "clear": "Effacer",
+    "importPlaylist": "Importer la playlist (max 50)",
+    "importing": "Import en cours…",
+    "imported": "{count} morceau(x) ajouté(s)",
+    "alreadyQueued": "Déjà dans la file",
+    "importError": "Import impossible",
+    "emptyTitle": "La playlist est vide.",
+    "emptySubtitle": "Ajoutez un son pour lancer la fête.",
+    "nowPlaying": "En lecture",
+    "remove": "Retirer",
+    "you": "(vous)",
+    "renameAria": "Changer mon nom",
+    "isHost": "Vous êtes l'hôte de cette room.",
+    "isGuest": "Vous avez rejoint cette room."
+  }
+}

@@ -2,6 +2,7 @@
 import type { PerspectiveCamera } from 'three'
 import { userColor } from '~/composables/useUserColor'
 
+const { t } = useI18n()
 const route = useRoute()
 const roomId = computed(() => String(route.params.id).toUpperCase())
 
@@ -151,10 +152,10 @@ async function importPlaylist() {
       source: 'youtube' as const,
       externalId: r.videoId
     })))
-    importMsg.value = added > 0 ? `${added} morceau(x) ajouté(s)` : 'Déjà dans la file'
+    importMsg.value = added > 0 ? t('panel.imported', { count: added }) : t('panel.alreadyQueued')
     clear()
   } catch {
-    importMsg.value = 'Import impossible'
+    importMsg.value = t('panel.importError')
   } finally {
     importing.value = false
     setTimeout(() => (importMsg.value = ''), 2500)
@@ -225,16 +226,16 @@ async function copyLink() {
         class="mx-auto size-12 text-white/30"
       />
       <h1 class="mt-4 text-2xl font-bold">
-        Room introuvable
+        {{ t('room.notFoundTitle') }}
       </h1>
       <p class="mt-2 text-white/55">
-        Cette room n'existe pas ou a été fermée par son hôte.
+        {{ t('room.notFoundText') }}
       </p>
       <NuxtLink
         to="/"
         class="mt-6 inline-block rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-6 py-3 font-semibold"
       >
-        Retour à l'accueil
+        {{ t('room.backHome') }}
       </NuxtLink>
     </div>
   </div>
@@ -295,7 +296,7 @@ async function copyLink() {
         <NuxtLink
           to="/"
           class="grid size-10 place-items-center rounded-full border border-white/15 bg-white/10 backdrop-blur-xl transition hover:bg-white/20"
-          aria-label="Accueil"
+          :aria-label="t('room.home')"
         >
           <UIcon
             name="i-lucide-arrow-left"
@@ -309,7 +310,7 @@ async function copyLink() {
             class="size-3.5 text-white/60"
           />
           <span class="text-sm font-semibold tracking-[0.2em]">{{ roomId }}</span>
-          <span class="text-xs text-white/45">· privée</span>
+          <span class="text-xs text-white/45">{{ t('room.private') }}</span>
         </div>
 
         <!-- Mode d'écoute -->
@@ -319,22 +320,25 @@ async function copyLink() {
             class="size-4 text-white/70"
           />
           <span class="hidden text-xs text-white/60 sm:inline">
-            {{ mode === 'speaker' ? 'Même pièce' : 'Chacun son ordi' }}
+            {{ mode === 'speaker' ? t('room.modeSpeaker') : t('room.modeEach') }}
           </span>
         </div>
       </div>
 
-      <button
-        class="pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
-        :style="{ backgroundColor: vibrantHex }"
-        @click="copyLink"
-      >
-        <UIcon
-          :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
-          class="size-4"
-        />
-        {{ copied ? 'Lien copié !' : 'Inviter' }}
-      </button>
+      <div class="pointer-events-auto flex items-center gap-2">
+        <LangSwitch />
+        <button
+          class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
+          :style="{ backgroundColor: vibrantHex }"
+          @click="copyLink"
+        >
+          <UIcon
+            :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
+            class="size-4"
+          />
+          {{ copied ? t('room.linkCopied') : t('room.invite') }}
+        </button>
+      </div>
     </header>
 
     <!-- ───────── Player du morceau en lecture ───────── -->
@@ -379,7 +383,7 @@ async function copyLink() {
         <!-- Plein écran du clip (pour tout le monde) -->
         <button
           class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
-          aria-label="Plein écran"
+          :aria-label="t('room.fullscreen')"
           @click="playerRef?.enterFullscreen()"
         >
           <UIcon
@@ -393,7 +397,7 @@ async function copyLink() {
           <button
             class="grid size-12 place-items-center rounded-full text-black shadow-lg transition hover:scale-105"
             :style="{ backgroundColor: vibrantHex }"
-            :aria-label="playing ? 'Pause' : 'Lecture'"
+            :aria-label="playing ? t('room.pause') : t('room.play')"
             @click="togglePlaying"
           >
             <UIcon
@@ -403,7 +407,7 @@ async function copyLink() {
           </button>
           <button
             class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
-            aria-label="Morceau suivant"
+            :aria-label="t('room.next')"
             @click="nextTrack"
           >
             <UIcon
@@ -432,7 +436,7 @@ async function copyLink() {
               name="i-lucide-list-music"
               class="size-4"
             />
-            Playlist
+            {{ t('panel.playlist') }}
             <span class="rounded-full bg-white/10 px-1.5 text-xs">{{ tracks.length }}</span>
           </button>
           <button
@@ -444,7 +448,7 @@ async function copyLink() {
               name="i-lucide-users"
               class="size-4"
             />
-            Membres
+            {{ t('panel.members') }}
             <span class="rounded-full bg-white/10 px-1.5 text-xs">{{ members.length }}</span>
           </button>
         </div>
@@ -480,12 +484,12 @@ async function copyLink() {
                   <span
                     v-if="m.isSelf"
                     class="text-xs text-white/40"
-                  >(vous)</span>
+                  >{{ t('panel.you') }}</span>
                 </span>
                 <button
                   v-if="m.isSelf"
                   class="shrink-0 text-white/40 transition hover:text-white"
-                  aria-label="Changer mon nom"
+                  :aria-label="t('panel.renameAria')"
                   @click="startRename"
                 >
                   <UIcon
@@ -512,14 +516,14 @@ async function copyLink() {
             />
             <input
               v-model="search"
-              placeholder="Rechercher (Entrée) ou coller une playlist…"
+              :placeholder="t('panel.searchPlaceholder')"
               class="w-full bg-transparent text-sm outline-none placeholder:text-white/40"
               @keyup.enter="submitSearch"
             >
             <button
               v-if="search"
               class="text-white/40 transition hover:text-white"
-              aria-label="Effacer"
+              :aria-label="t('panel.clear')"
               @click="clear"
             >
               <UIcon
@@ -542,7 +546,7 @@ async function copyLink() {
               class="size-4"
               :class="{ 'animate-spin': importing }"
             />
-            {{ importing ? 'Import en cours…' : 'Importer la playlist (max 50)' }}
+            {{ importing ? t('panel.importing') : t('panel.importPlaylist') }}
           </button>
           <p
             v-if="importMsg"
@@ -599,8 +603,8 @@ async function copyLink() {
             class="size-8 text-white/25"
           />
           <p class="text-sm text-white/45">
-            La playlist est vide.<br>
-            Ajoutez un son pour lancer la fête.
+            {{ t('panel.emptyTitle') }}<br>
+            {{ t('panel.emptySubtitle') }}
           </p>
         </div>
 
@@ -628,12 +632,12 @@ async function copyLink() {
                 {{ nowPlaying.artist || '—' }}
               </p>
             </div>
-            <span class="shrink-0 text-xs font-medium text-white/50">En lecture</span>
+            <span class="shrink-0 text-xs font-medium text-white/50">{{ t('panel.nowPlaying') }}</span>
             <!-- Retirer (auteur ou hôte) -->
             <button
               v-if="nowPlaying.addedBy === uid || isHost"
               class="shrink-0 text-white/30 transition hover:text-white/80"
-              aria-label="Retirer"
+              :aria-label="t('panel.remove')"
               @click="removeTrack(nowPlaying.id)"
             >
               <UIcon
@@ -680,7 +684,7 @@ async function copyLink() {
             <button
               v-if="track.addedBy === uid || isHost"
               class="shrink-0 text-white/30 transition hover:text-white/80"
-              aria-label="Retirer"
+              :aria-label="t('panel.remove')"
               @click="removeTrack(track.id)"
             >
               <UIcon
@@ -692,7 +696,7 @@ async function copyLink() {
         </ul>
 
         <p class="mt-4 text-center text-xs text-white/30">
-          {{ isHost ? 'Vous êtes l\'hôte de cette room.' : 'Vous avez rejoint cette room.' }}
+          {{ isHost ? t('panel.isHost') : t('panel.isGuest') }}
         </p>
       </div>
     </aside>
