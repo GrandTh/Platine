@@ -13,13 +13,19 @@ useHead({
 
 const title = 'Platine — Écoutez ensemble'
 const description = 'Créez une room privée, ajoutez vos sons dans une file partagée et écoutez ensemble.'
+// URL absolue requise pour les images OG (les plateformes ne lisent pas les chemins relatifs)
+const ogImage = 'https://platine.live/og.png'
 
 useSeoMeta({
   title,
   description,
   ogTitle: title,
   ogDescription: description,
-  twitterCard: 'summary_large_image'
+  ogImage,
+  ogType: 'website',
+  ogUrl: 'https://platine.live',
+  twitterCard: 'summary_large_image',
+  twitterImage: ogImage
 })
 </script>
 
