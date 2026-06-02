@@ -1,8 +1,17 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Police d'affichage pour le wordmark "Platine" */
+@font-face {
+  font-family: 'Gyanko';
+  src: url('/fonts/gyanko-regular.otf') format('opentype');
+  font-weight: 400;
+  font-display: swap;
+}
+
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
+  --font-display: 'Gyanko', sans-serif;
 
   --color-green-50: #EFFDF5;
   --color-green-100: #D9FBE8;
