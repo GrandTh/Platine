@@ -84,10 +84,26 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
       .eq('uid', uid)
   }
 
-  // Retrait de soi-même (départ). Best-effort : peut ne pas aboutir pendant
-  // l'unload, mais le TTL de présence (PRESENT_WINDOW_MS) sert de filet.
+  // Retrait de soi-même (départ propre, navigation interne).
   function leave() {
     return supabase.from('members').delete().eq('room_id', roomId).eq('uid', uid)
+  }
+
+  // Retrait à la fermeture de l'onglet/navigateur. Une requête fetch normale
+  // est tuée avant de partir → on utilise keepalive:true, qui survit à
+  // l'unload (comme sendBeacon mais avec headers pour l'API REST Supabase).
+  function leaveOnUnload() {
+    const cfg = useRuntimeConfig().public.supabase as { url: string, key: string }
+    if (!cfg?.url || !cfg?.key) return
+    const endpoint = `${cfg.url}/rest/v1/members?room_id=eq.${encodeURIComponent(roomId)}&uid=eq.${encodeURIComponent(uid)}`
+    fetch(endpoint, {
+      method: 'DELETE',
+      keepalive: true,
+      headers: {
+        apikey: cfg.key,
+        authorization: `Bearer ${cfg.key}`
+      }
+    }).catch(() => {})
   }
 
   // Attend que la room existe (ready) avant de s'inscrire : la FK members→rooms
@@ -114,7 +130,7 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   }
 
   function onUnload() {
-    leave()
+    leaveOnUnload()
   }
 
   onMounted(() => {
