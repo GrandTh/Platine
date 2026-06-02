@@ -17,6 +17,7 @@
     "@nuxtjs/supabase": "^2.0.9",
     "@tresjs/core": "^5.8.1",
     "@tresjs/nuxt": "^5.6.1",
+    "motion-v": "^2.2.1",
     "node-vibrant": "^4.0.4",
     "nuxt": "^4.4.6",
     "ogl": "^1.0.11",

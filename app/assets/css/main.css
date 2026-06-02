@@ -1,12 +1,20 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Police variable (axe wght) pour l'effet VariableProximity sur les titres */
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap');
+
 /* Police d'affichage pour le wordmark "Platine" */
 @font-face {
   font-family: 'Gyanko';
   src: url('/fonts/gyanko-regular.otf') format('opentype');
   font-weight: 400;
   font-display: swap;
+}
+
+/* Classe pour les textes à graisse variable (titre du morceau) */
+.font-variable {
+  font-family: 'Roboto Flex', sans-serif;
 }
 
 @theme static {

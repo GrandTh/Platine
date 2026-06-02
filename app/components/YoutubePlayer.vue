@@ -19,6 +19,7 @@ const emit = defineEmits<{
 
 const host = ref<HTMLElement | null>(null)
 const clip = ref<HTMLElement | null>(null)
+const infoRef = ref<HTMLElement | null>(null)
 let player: YTPlayer | null = null
 let raf = 0
 
@@ -192,14 +193,20 @@ onBeforeUnmount(() => {
     <!-- Infos (titre/artiste) — masquées en plein écran -->
     <div
       v-if="!fullscreen"
+      ref="infoRef"
       class="mt-3 text-white"
     >
-      <p
+      <VariableProximity
         v-if="title"
-        class="truncate text-sm font-semibold"
-      >
-        {{ title }}
-      </p>
+        :key="title"
+        :label="title"
+        from-font-variation-settings="'wght' 500"
+        to-font-variation-settings="'wght' 900"
+        :container-ref="infoRef"
+        :radius="90"
+        falloff="gaussian"
+        class-name="block truncate text-sm font-variable"
+      />
       <p
         v-if="artist"
         class="truncate text-xs text-white/55"
