@@ -37,8 +37,9 @@ const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 // File de morceaux + votes (temps réel via Supabase)
 const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
 
-// Membres de la room (présence + noms personnalisables, couleur par uid)
-const { members, myName, rename } = useMembers(roomId.value, uid)
+// Membres de la room (présence + noms personnalisables, couleur par uid).
+// On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
+const { members, myName, rename } = useMembers(roomId.value, uid, ready)
 
 // Onglets du panneau latéral : file d'attente / membres
 const panelTab = ref<'queue' | 'members'>('queue')

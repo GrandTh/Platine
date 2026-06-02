@@ -52,7 +52,7 @@ function joinRoom() {
         Rooms privées · YouTube
       </div>
 
-      <h1 class="bg-gradient-to-br from-white via-fuchsia-200 to-cyan-200 bg-clip-text font-[Gyanko] text-7xl tracking-tight text-transparent sm:text-8xl">
+      <h1 class="bg-gradient-to-br from-white via-fuchsia-200 to-cyan-200 bg-clip-text pl-[0.15em] font-[Gyanko] text-8xl tracking-[0.1em] text-transparent sm:text-8xl">
         Platine
       </h1>
       <p class="mt-5 max-w-md text-lg text-white/60">

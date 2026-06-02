@@ -1,3 +1,4 @@
+import type { Ref } from 'vue'
 import { userColor, shortId } from '~/composables/useUserColor'
 
 /**
@@ -25,7 +26,7 @@ export interface Member {
   isSelf: boolean
 }
 
-export function useMembers(roomId: string, uid: string) {
+export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   const supabase = useSupabaseClient()
   const rows = ref<DbMember[]>([])
   let timer: ReturnType<typeof setInterval> | null = null
@@ -80,7 +81,9 @@ export function useMembers(roomId: string, uid: string) {
       .eq('uid', uid)
   }
 
-  onMounted(async () => {
+  // Attend que la room existe (ready) avant de s'inscrire : la FK members→rooms
+  // rejetterait l'insert si la room n'est pas encore créée (cas de l'hôte).
+  async function start() {
     await join()
     await fetchAll()
     timer = setInterval(heartbeat, HEARTBEAT_MS)
@@ -93,6 +96,19 @@ export function useMembers(roomId: string, uid: string) {
         () => fetchAll()
       )
       .subscribe()
+  }
+
+  onMounted(() => {
+    if (ready.value) {
+      start()
+    } else {
+      const stop = watch(ready, (ok) => {
+        if (ok) {
+          stop()
+          start()
+        }
+      })
+    }
   })
 
   onBeforeUnmount(() => {
