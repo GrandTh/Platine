@@ -29,14 +29,17 @@ export interface Member {
 export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   const supabase = useSupabaseClient()
   const rows = ref<DbMember[]>([])
+  // Horodatage réactif : force le recalcul de `members` à intervalle régulier
+  // pour que les membres partis (last_seen périmé) disparaissent tout seuls.
+  const now = ref(Date.now())
   let timer: ReturnType<typeof setInterval> | null = null
+  let tick: ReturnType<typeof setInterval> | null = null
   let channel: ReturnType<typeof supabase.channel> | null = null
 
   // Membres présents (vus récemment), nom résolu + couleur.
   const members = computed<Member[]>(() => {
-    const now = Date.now()
     return rows.value
-      .filter(m => now - new Date(m.last_seen).getTime() < PRESENT_WINDOW_MS)
+      .filter(m => now.value - new Date(m.last_seen).getTime() < PRESENT_WINDOW_MS)
       .map(m => ({
         uid: m.uid,
         name: m.name?.trim() || shortId(m.uid),
@@ -81,12 +84,24 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
       .eq('uid', uid)
   }
 
+  // Retrait de soi-même (départ). Best-effort : peut ne pas aboutir pendant
+  // l'unload, mais le TTL de présence (PRESENT_WINDOW_MS) sert de filet.
+  function leave() {
+    return supabase.from('members').delete().eq('room_id', roomId).eq('uid', uid)
+  }
+
   // Attend que la room existe (ready) avant de s'inscrire : la FK members→rooms
   // rejetterait l'insert si la room n'est pas encore créée (cas de l'hôte).
   async function start() {
     await join()
     await fetchAll()
     timer = setInterval(heartbeat, HEARTBEAT_MS)
+    // Recalcule la présence + refetch périodique → les membres partis
+    // (last_seen périmé) disparaissent même sans event.
+    tick = setInterval(() => {
+      now.value = Date.now()
+      fetchAll()
+    }, 15_000)
 
     channel = supabase
       .channel(`members:${roomId}`)
@@ -98,7 +113,12 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
       .subscribe()
   }
 
+  function onUnload() {
+    leave()
+  }
+
   onMounted(() => {
+    window.addEventListener('beforeunload', onUnload)
     if (ready.value) {
       start()
     } else {
@@ -112,10 +132,15 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   })
 
   onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', onUnload)
     if (timer) clearInterval(timer)
     timer = null
+    if (tick) clearInterval(tick)
+    tick = null
     if (channel) supabase.removeChannel(channel)
     channel = null
+    // Départ via navigation interne (retour accueil, etc.)
+    leave()
   })
 
   return { members, myName, rename }
