@@ -283,6 +283,14 @@ async function copyLink() {
 
     <!-- ───────── Barre du haut ───────── -->
     <header class="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-5 md:p-8">
+      <!-- Wordmark "Platine" centré (même typo + dégradé que la home) -->
+      <NuxtLink
+        to="/"
+        class="pointer-events-auto absolute left-1/2 top-5 -translate-x-1/2 bg-gradient-to-br from-white via-fuchsia-200 to-cyan-200 bg-clip-text font-[Gyanko] text-2xl tracking-[0.05em] text-transparent md:top-8 md:text-3xl"
+      >
+        PLATINE
+      </NuxtLink>
+
       <div class="pointer-events-auto flex items-center gap-3">
         <NuxtLink
           to="/"
