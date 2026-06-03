@@ -99,6 +99,15 @@ function onSeekRatio(ratio: number) {
   broadcastSeek(seconds)
 }
 
+// Clic sur la barre de progression : calcule le ratio depuis la position X.
+const trackRef = ref<HTMLElement | null>(null)
+function onTrackClick(e: MouseEvent) {
+  if (!isHost.value || !trackRef.value) return
+  const rect = trackRef.value.getBoundingClientRect()
+  const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+  onSeekRatio(ratio)
+}
+
 // Réception d'un seek de l'hôte → on cale le player local.
 onSeek((seconds) => {
   playerRef.value?.seek(seconds)
@@ -172,12 +181,6 @@ const hex = (key: keyof typeof palette.value) =>
 const vibrantHex = hex('vibrant')
 const lightVibrantHex = hex('lightVibrant')
 const darkMutedHex = hex('darkMuted')
-
-// Couleur d'accent en RGB 0–1 pour le shader de la timeline.
-const vibrantRgb = computed<[number, number, number]>(() => {
-  const c = palette.value.vibrant
-  return [c.r, c.g, c.b]
-})
 
 const cameraRef = shallowRef<PerspectiveCamera | null>(null)
 watch(cameraRef, cam => cam?.lookAt(0, 0, 0))
@@ -355,31 +358,40 @@ async function copyLink() {
       @progress="onProgress"
     />
 
-    <!-- ───────── Timeline (Threads) pleine largeur + contrôles ───────── -->
+    <!-- ───────── Timeline classique + contrôles ───────── -->
     <div
       v-if="nowPlaying"
-      class="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center"
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 pb-5"
     >
-      <!-- Threads : remplissage selon la progression, seek si hôte.
-           Hauteur réduite pour que le ruban reste sous le vinyle, juste
-           au-dessus des contrôles (l'épaisseur du trait vient du shader). -->
-      <div class="pointer-events-auto h-12 w-full md:h-14">
-        <TimelineThreads
-          :progress="progress"
-          :fill-color="vibrantRgb"
-          :seekable="isHost"
-          @seek="onSeekRatio"
-        />
-      </div>
-
-      <!-- Temps -->
-      <div class="pointer-events-none -mt-2 flex w-full translate-y-3 justify-between px-5 text-[11px] tabular-nums text-white/45 md:px-8">
-        <span>{{ fmt(current) }}</span>
-        <span>{{ fmt(duration) }}</span>
+      <!-- Barre de progression (1/3 de l'écran, centrée) -->
+      <div class="pointer-events-auto w-full max-w-md px-5">
+        <!-- Piste cliquable : fond gris translucide, remplissage blanc -->
+        <div
+          ref="trackRef"
+          class="group relative h-1.5 w-full rounded-full bg-white/15 transition-all"
+          :class="isHost ? 'cursor-pointer hover:h-2.5' : ''"
+          @click="onTrackClick"
+        >
+          <div
+            class="absolute inset-y-0 left-0 rounded-full bg-white"
+            :style="{ width: `${progress * 100}%` }"
+          />
+          <!-- Curseur (handle) à la tête de lecture -->
+          <div
+            v-if="isHost"
+            class="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow transition-opacity group-hover:opacity-100"
+            :style="{ left: `${progress * 100}%` }"
+          />
+        </div>
+        <!-- Temps : actuel à gauche, total à droite -->
+        <div class="mt-1.5 flex justify-between text-[11px] tabular-nums text-white/50">
+          <span>{{ fmt(current) }}</span>
+          <span>{{ fmt(duration) }}</span>
+        </div>
       </div>
 
       <!-- Contrôles centrés -->
-      <div class="pointer-events-auto mt-1 mb-5 flex items-center gap-4">
+      <div class="pointer-events-auto flex items-center gap-4">
         <!-- Plein écran du clip (pour tout le monde) -->
         <button
           class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
