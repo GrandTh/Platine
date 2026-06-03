@@ -14,7 +14,27 @@ export const COLOR_PALETTE = [
   '#818cf8', // indigo
   '#c084fc', // violet
   '#f472b6', // fuchsia
-  '#a3e635' // lime
+  '#a3e635', // lime
+  '#ef4444', // rouge
+  '#f97316', // orange foncé
+  '#eab308', // or
+  '#84cc16', // vert citron
+  '#22c55e', // vert émeraude
+  '#10b981', // émeraude
+  '#14b8a6', // turquoise
+  '#06b6d4', // cyan
+  '#0ea5e9', // bleu ciel
+  '#3b82f6', // bleu
+  '#6366f1', // indigo vif
+  '#8b5cf6', // violet vif
+  '#a855f7', // pourpre
+  '#d946ef', // magenta
+  '#ec4899', // rose vif
+  '#f59e0b', // ambre
+  '#65a30d', // olive
+  '#0891b2', // cyan foncé
+  '#7c3aed', // violet profond
+  '#e11d48' // framboise
 ]
 
 export function userColor(uid: string): string {
