@@ -365,23 +365,27 @@ async function copyLink() {
     >
       <!-- Barre de progression (1/3 de l'écran, centrée) -->
       <div class="pointer-events-auto w-full max-w-md px-5">
-        <!-- Piste cliquable : fond gris translucide, remplissage blanc -->
+        <!-- Zone cliquable élargie (padding vertical) pour viser facilement la
+             barre ; la piste visible reste fine à l'intérieur. -->
         <div
           ref="trackRef"
-          class="group relative h-1.5 w-full rounded-full bg-white/15 transition-all"
-          :class="isHost ? 'cursor-pointer hover:h-2.5' : ''"
+          class="group relative -my-3 py-3"
+          :class="isHost ? 'cursor-pointer' : ''"
           @click="onTrackClick"
         >
-          <div
-            class="absolute inset-y-0 left-0 rounded-full bg-white"
-            :style="{ width: `${progress * 100}%` }"
-          />
-          <!-- Curseur (handle) à la tête de lecture -->
-          <div
-            v-if="isHost"
-            class="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow transition-opacity group-hover:opacity-100"
-            :style="{ left: `${progress * 100}%` }"
-          />
+          <!-- Piste : fond gris translucide, remplissage blanc -->
+          <div class="relative h-1.5 w-full rounded-full bg-white/15 transition-all group-hover:h-2.5">
+            <div
+              class="absolute inset-y-0 left-0 rounded-full bg-white"
+              :style="{ width: `${progress * 100}%` }"
+            />
+            <!-- Curseur (handle) à la tête de lecture -->
+            <div
+              v-if="isHost"
+              class="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow transition-opacity group-hover:opacity-100"
+              :style="{ left: `${progress * 100}%` }"
+            />
+          </div>
         </div>
         <!-- Temps : actuel à gauche, total à droite -->
         <div class="mt-1.5 flex justify-between text-[11px] tabular-nums text-white/50">
