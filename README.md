@@ -1,64 +1,46 @@
-# Nuxt Starter Template
+# 🎶 Platine
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+**Un jukebox collaboratif en temps réel.** Créez une room privée, ajoutez des morceaux YouTube dans une file partagée, votez, et écoutez ensemble — le tout autour d'un vinyle 3D animé.
 
-Use this template to get started with [Nuxt UI](https://ui.nuxt.com) quickly.
+🌐 **En production : [platine.live](https://platine.live)**
 
-- [Live demo](https://starter-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
+---
 
-<a href="https://starter-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-    <img alt="Nuxt Starter Template" src="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png" width="830" height="466">
-  </picture>
-</a>
+## ✨ Fonctionnalités
 
-> The starter template for Vue is on https://github.com/nuxt-ui-templates/starter-vue.
+- **Rooms privées éphémères** — un code court partageable par lien. La room vit tant qu'au moins une personne est présente, puis disparaît.
+- **Sans compte** — pas de login. Chaque visiteur a une identité anonyme et une couleur unique.
+- **File partagée + votes** — tout le monde ajoute des morceaux et upvote ; la file se réordonne en temps réel.
+- **Deux modes d'écoute :**
+  - **Même pièce** — seul l'hôte diffuse le son, les invités sont muets (idéal entre potes au même endroit).
+  - **Chacun son ordi** — le son est synchronisé sur chaque appareil (à distance).
+- **Vote pour passer** — les invités votent pour skip ; à 50 % de la room, le morceau est passé automatiquement.
+- **Recherche YouTube** — par mots-clés, par lien vidéo, ou par import de playlist.
+- **Vinyle 3D** — disque qui tourne, s'incline vers le curseur, et fait un salto au clic. Fond « liquid metal » teinté par la pochette du morceau.
+- **Lecteur intégré** — clip en coin, plein écran, timeline cliquable.
+- **Multilingue** — Français et Anglais.
 
-## Quick Start
+---
 
-```bash [Terminal]
-npm create nuxt@latest -- -t ui
-```
+## 🛠️ Stack
 
-## Deploy your own
+- **[Nuxt 4](https://nuxt.com)** — framework Vue 3
+- **[Vue 3](https://vuejs.org)** — interface réactive
+- **[Supabase](https://supabase.com)** — base de données & temps réel
+- **[TreeJS](https://tresjs.org)** — 3D / WebGL (Three.js dans Vue)
+- **[Nuxt UI](https://ui.nuxt.com)** + **[Tailwind CSS](https://tailwindcss.com)** — composants & styles
+- **YouTube** — Data API v3 + IFrame Player API
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=starter&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fstarter&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fstarter-dark.png&demo-url=https%3A%2F%2Fstarter-template.nuxt.dev%2F&demo-title=Nuxt%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Nuxt%20UI.)
+---
 
-## Setup
-
-Make sure to install the dependencies:
+## 🚀 Démarrage
 
 ```bash
+# installer les dépendances
 pnpm install
-```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
+# lancer le serveur de développement
 pnpm dev
 ```
 
-## Production
-
-Build the application for production:
-
-```bash
-pnpm build
-```
-
-Locally preview production build:
-
-```bash
-pnpm preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
-
-## Renovate integration
-
-Install [Renovate GitHub app](https://github.com/apps/renovate/installations/select_target) on your repository and you are good to go.
+L'app tourne sur **http://localhost:3000**.
