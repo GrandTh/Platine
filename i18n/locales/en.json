@@ -37,7 +37,11 @@
     "notFoundTitle": "Room not found",
     "notFoundText": "This room doesn't exist or was closed by its host.",
     "backHome": "Back to home",
-    "joinListen": "Join the session"
+    "joinListen": "Join the session",
+    "voteSkip": "Vote to skip",
+    "skipToastTitle": "{name} voted to skip",
+    "skipVoteBtn": "I vote",
+    "skipVotedBtn": "Vote removed"
   },
   "panel": {
     "search": "Search",

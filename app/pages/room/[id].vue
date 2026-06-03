@@ -42,6 +42,12 @@ const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, is
 // On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
 const { members, myName, rename } = useMembers(roomId.value, uid, ready)
 
+// Vote pour skip (invités). Quorum = 50% des invités présents (hôte exclu).
+const {
+  skipCount, hasVotedSkip, quorum, active: skipActive,
+  lastVoterName, lastVoterColor, toggleSkipVote, onQuorum
+} = useSkipVote(roomId.value, uid, currentTrackId, members)
+
 // Onglets du panneau latéral : recherche / playlist / membres
 const panelTab = ref<'search' | 'queue' | 'members'>('queue')
 
@@ -125,6 +131,12 @@ function advance() {
 function onTrackEnded() {
   advance()
 }
+
+// Quorum de votes skip atteint → seul l'hôte exécute le skip (autorité unique).
+// advance() retire le morceau courant → ses skip_votes partent en cascade (DB).
+onQuorum(() => {
+  if (isHost.value) advance()
+})
 function nextTrack() {
   advance()
 }
@@ -362,6 +374,45 @@ async function copyLink() {
       @progress="onProgress"
     />
 
+    <!-- ───────── Toast de vote pour skip (partagé, tous) ───────── -->
+    <Transition name="skip-toast">
+      <div
+        v-if="skipActive && nowPlaying"
+        class="pointer-events-auto absolute left-1/2 top-20 z-40 w-[320px] max-w-[90vw] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/80 p-4 shadow-2xl backdrop-blur-2xl md:top-24"
+      >
+        <div class="flex items-center gap-2">
+          <span
+            class="size-2.5 shrink-0 rounded-full"
+            :style="{ backgroundColor: lastVoterColor }"
+          />
+          <p class="min-w-0 flex-1 truncate text-sm font-medium text-white">
+            {{ t('room.skipToastTitle', { name: lastVoterName || '—' }) }}
+          </p>
+          <span class="shrink-0 text-xs tabular-nums text-white/50">{{ skipCount }}/{{ quorum }}</span>
+        </div>
+
+        <!-- Barre de progression du vote -->
+        <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+          <div
+            class="h-full rounded-full bg-fuchsia-400 transition-[width] duration-300"
+            :style="{ width: `${Math.min(100, (skipCount / quorum) * 100)}%` }"
+          />
+        </div>
+
+        <!-- Bouton voter / annuler (invité uniquement) -->
+        <button
+          v-if="!isHost"
+          class="mt-3 w-full cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold transition"
+          :class="hasVotedSkip
+            ? 'bg-white/10 text-white/70 hover:bg-white/20'
+            : 'bg-fuchsia-500 text-white hover:bg-fuchsia-400'"
+          @click="toggleSkipVote"
+        >
+          {{ hasVotedSkip ? t('room.skipVotedBtn') : t('room.skipVoteBtn') }}
+        </button>
+      </div>
+    </Transition>
+
     <!-- ───────── Timeline classique + contrôles ───────── -->
     <div
       v-if="nowPlaying"
@@ -435,6 +486,30 @@ async function copyLink() {
             />
           </button>
         </template>
+
+        <!-- Invité : vote pour skip (toggle), pophover au survol -->
+        <div
+          v-else
+          class="group relative"
+        >
+          <button
+            class="grid size-11 cursor-pointer place-items-center rounded-full border transition"
+            :class="hasVotedSkip
+              ? 'border-fuchsia-400/60 bg-fuchsia-500/30 text-white'
+              : 'border-white/15 bg-white/10 text-white hover:bg-white/20'"
+            :aria-label="t('room.voteSkip')"
+            @click="toggleSkipVote"
+          >
+            <UIcon
+              name="i-lucide-skip-forward"
+              class="size-5"
+            />
+          </button>
+          <!-- Pophover -->
+          <span class="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black/80 px-2.5 py-1 text-xs font-medium text-white opacity-0 backdrop-blur-xl transition group-hover:opacity-100">
+            {{ t('room.voteSkip') }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -771,5 +846,16 @@ async function copyLink() {
   .now-playing {
     animation: none;
   }
+}
+
+/* Apparition/disparition du toast de vote skip */
+.skip-toast-enter-active,
+.skip-toast-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.skip-toast-enter-from,
+.skip-toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -10px);
 }
 </style>

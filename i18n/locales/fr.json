@@ -37,7 +37,11 @@
     "notFoundTitle": "Room introuvable",
     "notFoundText": "Cette room n'existe pas ou a été fermée par son hôte.",
     "backHome": "Retour à l'accueil",
-    "joinListen": "Rejoindre l'écoute"
+    "joinListen": "Rejoindre l'écoute",
+    "voteSkip": "Voter pour passer",
+    "skipToastTitle": "{name} a voté pour passer le son",
+    "skipVoteBtn": "Je vote",
+    "skipVotedBtn": "Vote retiré"
   },
   "panel": {
     "search": "Recherche",

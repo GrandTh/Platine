@@ -28,6 +28,7 @@ export function useRoomLifecycle(
   const ready = ref(false)
   const roomMode = ref<RoomMode>(mode)
   const isHost = ref(false)
+  const hostId = ref<string | null>(null)
   const playing = ref(true)
   const currentTrackId = ref<string | null>(null)
   let timer: ReturnType<typeof setInterval> | null = null
@@ -62,6 +63,7 @@ export function useRoomLifecycle(
     if (data) {
       exists.value = true
       roomMode.value = data.mode
+      hostId.value = data.host_id
       isHost.value = data.host_id === uid
       playing.value = data.playing
       currentTrackId.value = data.current_track_id
@@ -139,7 +141,7 @@ export function useRoomLifecycle(
   })
 
   return {
-    exists, ready, mode: roomMode, isHost,
+    exists, ready, mode: roomMode, isHost, hostId,
     playing, togglePlaying, broadcastSeek, onSeek,
     currentTrackId, setCurrentTrack
   }

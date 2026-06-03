@@ -136,6 +136,27 @@ export type Database = {
         }
         Relationships: []
       }
+      skip_votes: {
+        Row: {
+          room_id: string
+          track_id: string
+          voter_id: string
+          created_at: string
+        }
+        Insert: {
+          room_id: string
+          track_id: string
+          voter_id: string
+          created_at?: string
+        }
+        Update: {
+          room_id?: string
+          track_id?: string
+          voter_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
