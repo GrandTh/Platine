@@ -347,7 +347,7 @@ async function copyLink() {
       <div class="pointer-events-auto flex items-center gap-2">
         <LangSwitch />
         <button
-          class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
+          class="flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
           :style="{ backgroundColor: vibrantHex }"
           @click="copyLink"
         >
@@ -522,7 +522,7 @@ async function copyLink() {
         <!-- Onglets (icônes) : playlist / recherche / membres -->
         <div class="flex items-center gap-1 rounded-xl bg-white/5 p-1">
           <button
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 transition"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 transition"
             :class="panelTab === 'queue' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             :title="t('panel.playlist')"
             :aria-label="t('panel.playlist')"
@@ -535,7 +535,7 @@ async function copyLink() {
             <span class="rounded-full bg-white/10 px-1.5 text-xs font-semibold">{{ tracks.length }}</span>
           </button>
           <button
-            class="flex flex-1 items-center justify-center rounded-lg py-2 transition"
+            class="flex flex-1 cursor-pointer items-center justify-center rounded-lg py-2 transition"
             :class="panelTab === 'search' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             :title="t('panel.search')"
             :aria-label="t('panel.search')"
@@ -547,7 +547,7 @@ async function copyLink() {
             />
           </button>
           <button
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 transition"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 transition"
             :class="panelTab === 'members' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             :title="t('panel.members')"
             :aria-label="t('panel.members')"
@@ -596,7 +596,7 @@ async function copyLink() {
                 </span>
                 <button
                   v-if="m.isSelf"
-                  class="shrink-0 text-white/40 transition hover:text-white"
+                  class="shrink-0 cursor-pointer text-white/40 transition hover:text-white"
                   :aria-label="t('panel.renameAria')"
                   @click="startRename"
                 >
@@ -758,7 +758,7 @@ async function copyLink() {
             <!-- Retirer (auteur ou hôte) -->
             <button
               v-if="nowPlaying.addedBy === uid || isHost"
-              class="shrink-0 text-white/30 transition hover:text-white/80"
+              class="shrink-0 cursor-pointer text-white/30 transition hover:text-white/80"
               :aria-label="t('panel.remove')"
               @click="removeTrack(nowPlaying.id)"
             >
@@ -788,7 +788,7 @@ async function copyLink() {
 
             <!-- Vote -->
             <button
-              class="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold transition"
+              class="flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold transition"
               :class="hasVoted(track)
                 ? 'bg-white/90 text-black'
                 : 'bg-white/10 text-white hover:bg-white/20'"
@@ -805,7 +805,7 @@ async function copyLink() {
             <!-- Retirer (auteur ou hôte) -->
             <button
               v-if="track.addedBy === uid || isHost"
-              class="shrink-0 text-white/30 transition hover:text-white/80"
+              class="shrink-0 cursor-pointer text-white/30 transition hover:text-white/80"
               :aria-label="t('panel.remove')"
               @click="removeTrack(track.id)"
             >

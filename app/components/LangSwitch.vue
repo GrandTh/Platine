@@ -10,7 +10,7 @@ function toggle() {
 
 <template>
   <button
-    class="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/70 backdrop-blur-xl transition hover:bg-white/20"
+    class="pointer-events-auto flex cursor-pointer items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/70 backdrop-blur-xl transition hover:bg-white/20"
     :aria-label="`Switch to ${next}`"
     @click="toggle"
   >

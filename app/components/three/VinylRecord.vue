@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Group, Texture } from 'three'
-import { CanvasTexture, SRGBColorSpace } from 'three'
-import { useLoop } from '@tresjs/core'
+import { CanvasTexture, Raycaster, SRGBColorSpace, Vector2 } from 'three'
+import { useLoop, useTresContext } from '@tresjs/core'
 
 // Texture des sillons : disque noir gravé de 5 cercles fins concentriques.
 // Dessinée sur un canvas → visible quelle que soit la lumière (contrairement
@@ -95,6 +95,57 @@ const TILT = 0.12 // amplitude max (radians) — discret
 const targetTilt = { x: 0, y: 0 }
 const curTilt = { x: 0, y: 0 }
 
+// --- Salto (backflip) au clic ---
+// Il faut CLICKS_PER_FLIP clics rapprochés sur le disque pour déclencher UN
+// seul salto de 360° autour de l'axe X (plan vertical) : le disque bascule sur
+// lui-même comme une pièce qu'on lance, montre son dos puis revient pile à plat.
+// Pendant le salto, les clics sont ignorés → spammer ne le fait pas tourner en
+// boucle. Aucune translation : le disque reste centré, il ne sort jamais de l'écran.
+const flipRef = shallowRef<Group | null>(null)
+let flipAngle = 0 // angle courant appliqué
+let flipTarget = 0 // angle visé
+let flipping = false // un salto est en cours
+const FLIP_RAMP = 1 // réactivité du salto (plus grand = plus rapide/sec)
+
+const CLICKS_PER_FLIP = 5 // nombre de clics rapides pour armer un salto
+const CLICK_WINDOW = 600 // ms max entre 2 clics pour enchaîner (sinon reset)
+let clickCount = 0
+let lastClick = 0
+
+// Raycast manuel : le système d'événements de TresJS ne déclenche pas
+// toujours sur ce groupe, donc on écoute le pointerdown global et on teste
+// soi-même l'intersection avec le disque (fiable partout).
+const { camera, renderer } = useTresContext()
+const raycaster = new Raycaster()
+const ndc = new Vector2()
+
+function registerClick() {
+  // Pendant un salto, on n'accumule rien : pas de boucle quand on spamme.
+  if (flipping) return
+  const now = performance.now()
+  if (now - lastClick > CLICK_WINDOW) clickCount = 0
+  lastClick = now
+  clickCount += 1
+  if (clickCount >= CLICKS_PER_FLIP) {
+    clickCount = 0
+    flipping = true
+    flipTarget = flipAngle + Math.PI * 2 // exactement un tour
+  }
+}
+
+function onPointerDown(e: PointerEvent) {
+  const cam = camera.activeCamera.value
+  const canvas = renderer.instance?.domElement
+  const disc = spinRef.value
+  if (!cam || !canvas || !disc) return
+  const rect = canvas.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return
+  ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+  ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+  raycaster.setFromCamera(ndc, cam)
+  if (raycaster.intersectObject(disc, true).length > 0) registerClick()
+}
+
 function onMouseMove(e: MouseEvent) {
   // -1..1 par rapport au centre de l'écran
   const nx = (e.clientX / window.innerWidth) * 2 - 1
@@ -103,8 +154,14 @@ function onMouseMove(e: MouseEvent) {
   targetTilt.x = ny * TILT
 }
 
-onMounted(() => window.addEventListener('mousemove', onMouseMove))
-onBeforeUnmount(() => window.removeEventListener('mousemove', onMouseMove))
+onMounted(() => {
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('pointerdown', onPointerDown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('pointerdown', onPointerDown)
+})
 
 const { onBeforeRender } = useLoop()
 onBeforeRender(({ delta }) => {
@@ -124,6 +181,17 @@ onBeforeRender(({ delta }) => {
     tiltRef.value.rotation.x = BASE_X + curTilt.x
     tiltRef.value.rotation.z = curTilt.y
   }
+
+  // Salto : l'angle rattrape la cible en douceur (whip qui décélère).
+  flipAngle += (flipTarget - flipAngle) * Math.min(1, delta * FLIP_RAMP)
+  // Une fois le salto consommé, on remet à zéro (N·2π ≡ à plat) pour éviter
+  // que les angles ne grossissent indéfiniment au fil des clics.
+  if (Math.abs(flipTarget - flipAngle) < 0.0005) {
+    flipAngle = 0
+    flipTarget = 0
+    flipping = false
+  }
+  if (flipRef.value) flipRef.value.rotation.x = flipAngle
 })
 </script>
 
@@ -133,54 +201,58 @@ onBeforeRender(({ delta }) => {
     ref="tiltRef"
     :rotation="[BASE_X, 0, 0]"
   >
-    <TresGroup ref="spinRef">
-      <!-- Galette vinyle : noir brillant gravé de sillons (texture).
+    <!-- Salto au clic : bascule autour de l'axe X (plan vertical).
+         Déclenché par raycast manuel (voir onPointerDown), pas par @pointer-down. -->
+    <TresGroup ref="flipRef">
+      <TresGroup ref="spinRef">
+        <!-- Galette vinyle : noir brillant gravé de sillons (texture).
            La texture rend les 5 cercles visibles quelle que soit la lumière. -->
-      <TresMesh>
-        <TresCylinderGeometry :args="[2, 2, 0.05, 96]" />
-        <TresMeshStandardMaterial
-          :map="grooveTex"
-          :roughness="0.18"
-          :metalness="1"
-          :env-map-intensity="1"
-        />
-      </TresMesh>
+        <TresMesh>
+          <TresCylinderGeometry :args="[2, 2, 0.05, 96]" />
+          <TresMeshStandardMaterial
+            :map="grooveTex"
+            :roughness="0.18"
+            :metalness="1"
+            :env-map-intensity="1"
+          />
+        </TresMesh>
 
-      <!-- Label central : la pochette (ou couleur de repli) -->
-      <!-- :key force la recompilation du matériau quand la texture arrive -->
-      <TresMesh :position="[0, 0.026, 0]">
-        <TresCylinderGeometry :args="[0.78, 0.78, 0.012, 96]" />
-        <TresMeshStandardMaterial
-          :key="cover ? cover.uuid : 'fallback'"
-          :map="cover || undefined"
-          :color="cover ? '#ffffff' : accent"
-          :roughness="0.55"
-          :metalness="0.1"
-        />
-      </TresMesh>
+        <!-- Label central : la pochette (ou couleur de repli) -->
+        <!-- :key force la recompilation du matériau quand la texture arrive -->
+        <TresMesh :position="[0, 0.026, 0]">
+          <TresCylinderGeometry :args="[0.78, 0.78, 0.012, 96]" />
+          <TresMeshStandardMaterial
+            :key="cover ? cover.uuid : 'fallback'"
+            :map="cover || undefined"
+            :color="cover ? '#ffffff' : accent"
+            :roughness="0.55"
+            :metalness="0.1"
+          />
+        </TresMesh>
 
-      <!-- Reflet annulaire (anneau métallique pour l'effet liquid metal) -->
-      <TresMesh
-        :position="[0, 0.027, 0]"
-        :rotation="[Math.PI / 2, 0, 0]"
-      >
-        <TresRingGeometry :args="[0.8, 0.86, 96]" />
-        <TresMeshStandardMaterial
-          :color="accent"
-          :roughness="0.1"
-          :metalness="1"
-          :env-map-intensity="1"
-        />
-      </TresMesh>
+        <!-- Reflet annulaire (anneau métallique pour l'effet liquid metal) -->
+        <TresMesh
+          :position="[0, 0.027, 0]"
+          :rotation="[Math.PI / 2, 0, 0]"
+        >
+          <TresRingGeometry :args="[0.8, 0.86, 96]" />
+          <TresMeshStandardMaterial
+            :color="accent"
+            :roughness="0.1"
+            :metalness="1"
+            :env-map-intensity="1"
+          />
+        </TresMesh>
 
-      <!-- Trou central -->
-      <TresMesh :position="[0, 0.034, 0]">
-        <TresCylinderGeometry :args="[0.035, 0.035, 0.02, 24]" />
-        <TresMeshStandardMaterial
-          color="#050506"
-          :roughness="0.9"
-        />
-      </TresMesh>
+        <!-- Trou central -->
+        <TresMesh :position="[0, 0.034, 0]">
+          <TresCylinderGeometry :args="[0.035, 0.035, 0.02, 24]" />
+          <TresMeshStandardMaterial
+            color="#050506"
+            :roughness="0.9"
+          />
+        </TresMesh>
+      </TresGroup>
     </TresGroup>
   </TresGroup>
 </template>
