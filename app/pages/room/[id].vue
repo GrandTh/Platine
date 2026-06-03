@@ -402,7 +402,7 @@ async function copyLink() {
       <div class="pointer-events-auto flex items-center gap-4">
         <!-- Plein écran du clip (pour tout le monde) -->
         <button
-          class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+          class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
           :aria-label="t('room.fullscreen')"
           @click="playerRef?.enterFullscreen()"
         >
@@ -415,7 +415,7 @@ async function copyLink() {
         <!-- Pause/play + morceau suivant : hôte uniquement -->
         <template v-if="isHost">
           <button
-            class="grid size-12 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+            class="grid size-12 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
             :aria-label="playing ? t('room.pause') : t('room.play')"
             @click="togglePlaying"
           >
@@ -425,7 +425,7 @@ async function copyLink() {
             />
           </button>
           <button
-            class="grid size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+            class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
             :aria-label="t('room.next')"
             @click="nextTrack"
           >
