@@ -3,6 +3,36 @@ import type { Group, Texture } from 'three'
 import { CanvasTexture, SRGBColorSpace } from 'three'
 import { useLoop } from '@tresjs/core'
 
+// Texture des sillons : disque noir gravé de 5 cercles fins concentriques.
+// Dessinée sur un canvas → visible quelle que soit la lumière (contrairement
+// à des anneaux 3D qui se noient dans le noir brillant).
+function makeGrooveTexture(): Texture {
+  const size = 1024
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = size
+  const ctx = cv.getContext('2d')!
+  const c = size / 2
+
+  ctx.fillStyle = '#050507'
+  ctx.fillRect(0, 0, size, size)
+
+  // 5 sillons entre ~26% et ~46% du rayon (zone noire, hors label central).
+  ctx.strokeStyle = 'rgba(150,150,165,0.55)'
+  ctx.lineWidth = 1.5
+  for (const frac of [0.26, 0.31, 0.36, 0.41, 0.46]) {
+    ctx.beginPath()
+    ctx.arc(c, c, frac * size, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+
+  const tex = new CanvasTexture(cv)
+  tex.colorSpace = SRGBColorSpace
+  tex.anisotropy = 8
+  return tex
+}
+const grooveTex = makeGrooveTexture()
+onBeforeUnmount(() => grooveTex.dispose())
+
 const props = withDefaults(defineProps<{
   coverSrc: string
   /** Couleur de repli du label tant que la pochette n'est pas chargée */
@@ -103,33 +133,15 @@ onBeforeRender(({ delta }) => {
     :rotation="[BASE_X, 0, 0]"
   >
     <TresGroup ref="spinRef">
-      <!-- Galette vinyle : noir profond et brillant. roughness très bas →
-           reflet net facon miroir (et non un gros halo flou). -->
+      <!-- Galette vinyle : noir brillant gravé de sillons (texture).
+           La texture rend les 5 cercles visibles quelle que soit la lumière. -->
       <TresMesh>
         <TresCylinderGeometry :args="[2, 2, 0.05, 96]" />
         <TresMeshStandardMaterial
-          color="#050507"
-          :roughness="0.08"
+          :map="grooveTex"
+          :roughness="0.18"
           :metalness="1"
           :env-map-intensity="1"
-        />
-      </TresMesh>
-
-      <!-- Sillons : 5 fins cercles concentriques sur la partie noire,
-           pour l'effet vinyle. Légèrement plus clairs et posés juste
-           au-dessus de la surface pour accrocher la lumière. -->
-      <TresMesh
-        v-for="r in [1.0, 1.2, 1.4, 1.6, 1.8]"
-        :key="r"
-        :position="[0, 0.0252, 0]"
-        :rotation="[Math.PI / 2, 0, 0]"
-      >
-        <TresRingGeometry :args="[r, r + 0.006, 128]" />
-        <TresMeshStandardMaterial
-          color="#2a2a30"
-          :roughness="0.4"
-          :metalness="0.9"
-          :env-map-intensity="0.8"
         />
       </TresMesh>
 
