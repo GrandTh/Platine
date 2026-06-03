@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { userColor, shortId } from '~/composables/useUserColor'
+import { COLOR_PALETTE, userColor, shortId } from '~/composables/useUserColor'
 
 /**
  * Membres d'une room (présence + nom), en temps réel via Supabase.
@@ -7,7 +7,9 @@ import { userColor, shortId } from '~/composables/useUserColor'
  * - À l'arrivée : upsert de sa propre ligne ; un heartbeat rafraîchit
  *   `last_seen` (présence). On considère "présent" = vu il y a < 1 min.
  * - Le nom est personnalisable (rename) ; sinon on affiche un ID court.
- * - La couleur est dérivée de l'uid (non stockée).
+ * - Couleur : assignée par ordre d'arrivée (created_at) → unique tant qu'il
+ *   y a moins de membres que de couleurs dans la palette (pas de collision,
+ *   contrairement à un simple hash de l'uid).
  */
 
 const HEARTBEAT_MS = 20_000
@@ -17,6 +19,7 @@ interface DbMember {
   uid: string
   name: string | null
   last_seen: string
+  created_at: string
 }
 
 export interface Member {
@@ -36,14 +39,26 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   let tick: ReturnType<typeof setInterval> | null = null
   let channel: ReturnType<typeof supabase.channel> | null = null
 
-  // Membres présents (vus récemment), nom résolu + couleur.
+  // Membres présents (vus récemment), nom résolu + couleur unique.
   const members = computed<Member[]>(() => {
-    return rows.value
-      .filter(m => now.value - new Date(m.last_seen).getTime() < PRESENT_WINDOW_MS)
+    const present = rows.value.filter(
+      m => now.value - new Date(m.last_seen).getTime() < PRESENT_WINDOW_MS
+    )
+    // Couleur par rang d'arrivée (created_at, départage par uid) → unique tant
+    // que le nb de membres ≤ taille de la palette. Au-delà, repli sur le hash.
+    const ranked = [...present].sort((a, b) =>
+      a.created_at.localeCompare(b.created_at) || a.uid.localeCompare(b.uid)
+    )
+    const colorByUid = new Map<string, string>()
+    ranked.forEach((m, i) => {
+      colorByUid.set(m.uid, i < COLOR_PALETTE.length ? COLOR_PALETTE[i]! : userColor(m.uid))
+    })
+
+    return present
       .map(m => ({
         uid: m.uid,
         name: m.name?.trim() || shortId(m.uid),
-        color: userColor(m.uid),
+        color: colorByUid.get(m.uid)!,
         isSelf: m.uid === uid
       }))
       .sort((a, b) => (a.isSelf ? -1 : b.isSelf ? 1 : a.name.localeCompare(b.name)))
@@ -54,7 +69,7 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   async function fetchAll() {
     const { data } = await supabase
       .from('members')
-      .select('uid, name, last_seen')
+      .select('uid, name, last_seen, created_at')
       .eq('room_id', roomId)
     rows.value = (data ?? []) as DbMember[]
   }

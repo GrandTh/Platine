@@ -3,7 +3,8 @@
  * Pas de stockage : la même uid donne toujours la même couleur, donc la
  * bordure d'un morceau reste cohérente même si l'auteur a quitté la room.
  */
-const PALETTE = [
+// Palette partagée (membres par rang d'arrivée, et repli par hash).
+export const COLOR_PALETTE = [
   '#f43f5e', // rose
   '#fb923c', // orange
   '#facc15', // jaune
@@ -21,7 +22,7 @@ export function userColor(uid: string): string {
   for (let i = 0; i < uid.length; i++) {
     hash = (hash * 31 + uid.charCodeAt(i)) | 0
   }
-  return PALETTE[Math.abs(hash) % PALETTE.length]!
+  return COLOR_PALETTE[Math.abs(hash) % COLOR_PALETTE.length]!
 }
 
 /** Nom de repli lisible quand le membre n'a pas choisi de pseudo. */
