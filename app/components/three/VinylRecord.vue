@@ -112,7 +112,8 @@ onBeforeRender(({ delta }) => {
   // Lissage exponentiel, stable quel que soit le framerate.
   currentSpeed += (target - currentSpeed) * Math.min(1, delta * RAMP)
   if (spinRef.value) {
-    spinRef.value.rotation.y += delta * currentSpeed * Math.PI * 2
+    // Sens horaire (comme un vrai vinyle, vu du dessus) → rotation négative.
+    spinRef.value.rotation.y -= delta * currentSpeed * Math.PI * 2
   }
 
   // Tilt lissé vers la cible.
