@@ -20,9 +20,37 @@ export function useYoutubeSearch() {
     return m?.[1] ?? null
   })
 
-  /** Lance la recherche (sur Entrée). Ignorée si URL de playlist ou trop court. */
+  // Détecte un ID de VIDÉO dans une URL collée (watch?v=, youtu.be/, shorts, embed).
+  // Ignoré si c'est une URL de playlist pure (priorité à l'import playlist).
+  const videoId = computed(() => {
+    if (playlistId.value && !/[?&]v=/.test(query.value)) return null
+    const m = query.value.match(
+      /(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/
+    )
+    return m?.[1] ?? null
+  })
+
+  /** Lance la recherche (sur Entrée) : lien vidéo → videos.list (1 unité),
+   *  sinon recherche mots-clés. Ignorée si playlist pure ou trop court. */
   async function submit() {
     const trimmed = query.value.trim()
+    if (videoId.value) {
+      const mine = ++seq
+      loading.value = true
+      error.value = null
+      try {
+        const data = await $fetch<SearchResult[]>('/api/video', { query: { id: videoId.value } })
+        if (mine === seq) results.value = data
+      } catch {
+        if (mine === seq) {
+          error.value = 'Vidéo indisponible'
+          results.value = []
+        }
+      } finally {
+        if (mine === seq) loading.value = false
+      }
+      return
+    }
     if (playlistId.value || trimmed.length < 2) return
     const mine = ++seq
     loading.value = true
