@@ -62,9 +62,12 @@ uniform vec2 uMouse;
 
 #define PI 3.1415926538
 
-const int u_line_count = 20;
-const float u_line_width = 60.0;
-const float u_line_blur = 34.0;
+// Beaucoup de fils FINS qui s'entrelacent (comme l'original vue-bits).
+// Épaisseur en FRACTION DE LA HAUTEUR du ruban (0..1) → cohérente sur
+// tous les écrans, indépendante de la largeur et de la densité (DPR).
+const int u_line_count = 40;
+const float u_line_width = 0.045;
+const float u_line_blur = 0.05;
 
 float Perlin2D(vec2 P) {
     vec2 Pi = floor(P);
@@ -87,10 +90,6 @@ float Perlin2D(vec2 P) {
     return dot(grad_results, blend2.zxzx * blend2.wwyy);
 }
 
-float pixel(float count, vec2 resolution) {
-    return (1.0 / max(resolution.x, resolution.y)) * count;
-}
-
 float lineFn(vec2 st, float width, float perc, float offset, vec2 mouse, float time, float amplitude, float distance) {
     float split_offset = (perc * 0.4);
     float split_point = 0.1 + split_offset;
@@ -111,15 +110,16 @@ float lineFn(vec2 st, float width, float perc, float offset, vec2 mouse, float t
 
     float y = 0.5 + (perc - 0.5) * distance + xnoise / 2.0 * finalAmplitude;
 
+    // width et u_line_blur sont des fractions de hauteur (indépendantes du DPR).
     float line_start = smoothstep(
-        y + (width / 2.0) + (u_line_blur * pixel(1.0, iResolution.xy) * blur),
+        y + (width / 2.0) + (u_line_blur * blur),
         y,
         st.y
     );
 
     float line_end = smoothstep(
         y,
-        y - (width / 2.0) - (u_line_blur * pixel(1.0, iResolution.xy) * blur),
+        y - (width / 2.0) - (u_line_blur * blur),
         st.y
     );
 
@@ -138,7 +138,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         float p = float(i) / float(u_line_count);
         line_strength *= (1.0 - lineFn(
             uv,
-            u_line_width * pixel(1.0, iResolution.xy) * (1.0 - p),
+            u_line_width * (1.0 - p),
             p,
             (PI * 1.0) * p,
             uMouse,
