@@ -40,8 +40,11 @@
     "joinListen": "Join the session"
   },
   "panel": {
+    "search": "Search",
     "playlist": "Playlist",
     "members": "Members",
+    "searchHint": "Search for a track and add it to the playlist.",
+    "searchEmpty": "No results. Type a title then press Enter.",
     "searchPlaceholder": "Search (Enter) or paste a playlist…",
     "clear": "Clear",
     "importPlaylist": "Import playlist (max 50)",

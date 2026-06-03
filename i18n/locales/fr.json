@@ -40,8 +40,11 @@
     "joinListen": "Rejoindre l'écoute"
   },
   "panel": {
+    "search": "Recherche",
     "playlist": "Playlist",
     "members": "Membres",
+    "searchHint": "Cherchez un titre et ajoutez-le à la playlist.",
+    "searchEmpty": "Aucun résultat. Tapez un titre puis Entrée.",
     "searchPlaceholder": "Rechercher (Entrée) ou coller une playlist…",
     "clear": "Effacer",
     "importPlaylist": "Importer la playlist (max 50)",

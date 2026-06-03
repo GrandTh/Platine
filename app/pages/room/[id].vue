@@ -42,8 +42,8 @@ const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, is
 // On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
 const { members, myName, rename } = useMembers(roomId.value, uid, ready)
 
-// Onglets du panneau latéral : file d'attente / membres
-const panelTab = ref<'queue' | 'members'>('queue')
+// Onglets du panneau latéral : recherche / playlist / membres
+const panelTab = ref<'search' | 'queue' | 'members'>('queue')
 
 // Rename inline
 const renaming = ref(false)
@@ -133,6 +133,8 @@ function nextTrack() {
 const { query: search, results, loading: searching, clear, playlistId, submit: submitSearch } = useYoutubeSearch()
 
 function pick(result: { videoId: string, title: string, channel: string, thumbnail: string }) {
+  // On NE vide PAS la recherche : permet d'ajouter plusieurs titres d'affilée
+  // (ex. plusieurs morceaux du même artiste) sans retaper.
   addTrack({
     title: result.title,
     artist: result.channel,
@@ -140,7 +142,6 @@ function pick(result: { videoId: string, title: string, channel: string, thumbna
     source: 'youtube',
     externalId: result.videoId
   })
-  clear()
 }
 
 // Import d'une playlist YouTube (jusqu'à 50 morceaux, 0 vote = fallback).
@@ -443,10 +444,21 @@ async function copyLink() {
          Le panneau interne réactive les events. -->
     <aside class="pointer-events-none absolute inset-x-0 bottom-0 p-4 md:inset-y-0 md:right-0 md:left-auto md:flex md:w-96 md:items-center md:p-6">
       <div class="pointer-events-auto flex h-[45dvh] w-full flex-col rounded-3xl border border-white/15 bg-black/30 p-5 backdrop-blur-2xl md:h-[80dvh]">
-        <!-- Onglets : file d'attente / membres -->
+        <!-- Onglets : recherche / playlist / membres -->
         <div class="flex items-center gap-1 rounded-xl bg-white/5 p-1">
           <button
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition"
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold transition"
+            :class="panelTab === 'search' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
+            @click="panelTab = 'search'"
+          >
+            <UIcon
+              name="i-lucide-search"
+              class="size-4"
+            />
+            <span class="hidden sm:inline">{{ t('panel.search') }}</span>
+          </button>
+          <button
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold transition"
             :class="panelTab === 'queue' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             @click="panelTab = 'queue'"
           >
@@ -454,11 +466,11 @@ async function copyLink() {
               name="i-lucide-list-music"
               class="size-4"
             />
-            {{ t('panel.playlist') }}
+            <span class="hidden sm:inline">{{ t('panel.playlist') }}</span>
             <span class="rounded-full bg-white/10 px-1.5 text-xs">{{ tracks.length }}</span>
           </button>
           <button
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition"
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold transition"
             :class="panelTab === 'members' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             @click="panelTab = 'members'"
           >
@@ -466,7 +478,7 @@ async function copyLink() {
               name="i-lucide-users"
               class="size-4"
             />
-            {{ t('panel.members') }}
+            <span class="hidden sm:inline">{{ t('panel.members') }}</span>
             <span class="rounded-full bg-white/10 px-1.5 text-xs">{{ members.length }}</span>
           </button>
         </div>
@@ -520,12 +532,12 @@ async function copyLink() {
           </ul>
         </div>
 
-        <!-- ───── Onglet FILE ───── -->
-        <!-- Recherche YouTube -->
+        <!-- ───── Onglet RECHERCHE ───── -->
         <div
-          v-show="panelTab === 'queue'"
-          class="relative mt-4"
+          v-show="panelTab === 'search'"
+          class="mt-4 flex min-h-0 flex-1 flex-col"
         >
+          <!-- Barre de recherche -->
           <div class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
             <UIcon
               :name="searching ? 'i-lucide-loader-circle' : 'i-lucide-search'"
@@ -573,10 +585,10 @@ async function copyLink() {
             {{ importMsg }}
           </p>
 
-          <!-- Résultats -->
+          <!-- Résultats : grande liste scrollable qui remplit le panneau -->
           <ul
             v-if="results.length"
-            class="absolute z-20 mt-2 max-h-72 w-full space-y-1 overflow-y-auto rounded-xl border border-white/15 bg-black/80 p-2 backdrop-blur-2xl"
+            class="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto"
           >
             <li
               v-for="r in results"
@@ -589,7 +601,7 @@ async function copyLink() {
                 <img
                   :src="r.thumbnail"
                   alt=""
-                  class="size-10 shrink-0 rounded object-cover"
+                  class="h-11 w-11 shrink-0 rounded object-cover"
                 >
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium">{{ r.title }}</span>
@@ -599,16 +611,30 @@ async function copyLink() {
                 <UIcon
                   v-if="isQueued('youtube', r.videoId)"
                   name="i-lucide-arrow-big-up"
-                  class="size-4 shrink-0 text-fuchsia-400"
+                  class="size-5 shrink-0 text-fuchsia-400"
                 />
                 <UIcon
                   v-else
                   name="i-lucide-plus"
-                  class="size-4 shrink-0 text-white/40"
+                  class="size-5 shrink-0 text-white/40"
                 />
               </button>
             </li>
           </ul>
+
+          <!-- Aide / état vide de la recherche -->
+          <div
+            v-else
+            class="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center"
+          >
+            <UIcon
+              name="i-lucide-search"
+              class="size-8 text-white/25"
+            />
+            <p class="text-sm text-white/45">
+              {{ search ? t('panel.searchEmpty') : t('panel.searchHint') }}
+            </p>
+          </div>
         </div>
 
         <!-- État vide (rien en lecture ni à venir) -->

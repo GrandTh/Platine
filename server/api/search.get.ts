@@ -77,7 +77,7 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
         key: youtubeApiKey,
         part: 'snippet',
         type: 'video',
-        maxResults: 8,
+        maxResults: 25,
         videoCategoryId: '10', // Musique
         q: raw
       }
