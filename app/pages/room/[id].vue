@@ -407,8 +407,7 @@ async function copyLink() {
         <!-- Pause/play + morceau suivant : hôte uniquement -->
         <template v-if="isHost">
           <button
-            class="grid size-12 place-items-center rounded-full text-black shadow-lg transition hover:scale-105"
-            :style="{ backgroundColor: vibrantHex }"
+            class="grid size-12 place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
             :aria-label="playing ? t('room.pause') : t('room.play')"
             @click="togglePlaying"
           >
