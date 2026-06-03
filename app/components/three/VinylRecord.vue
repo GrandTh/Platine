@@ -115,6 +115,24 @@ onBeforeRender(({ delta }) => {
         />
       </TresMesh>
 
+      <!-- Sillons : 5 fins cercles concentriques sur la partie noire,
+           pour l'effet vinyle. Légèrement plus clairs et posés juste
+           au-dessus de la surface pour accrocher la lumière. -->
+      <TresMesh
+        v-for="r in [1.0, 1.2, 1.4, 1.6, 1.8]"
+        :key="r"
+        :position="[0, 0.0252, 0]"
+        :rotation="[Math.PI / 2, 0, 0]"
+      >
+        <TresRingGeometry :args="[r, r + 0.006, 128]" />
+        <TresMeshStandardMaterial
+          color="#2a2a30"
+          :roughness="0.4"
+          :metalness="0.9"
+          :env-map-intensity="0.8"
+        />
+      </TresMesh>
+
       <!-- Label central : la pochette (ou couleur de repli) -->
       <!-- :key force la recompilation du matériau quand la texture arrive -->
       <TresMesh :position="[0, 0.026, 0]">
