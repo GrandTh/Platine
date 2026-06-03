@@ -261,12 +261,15 @@ async function copyLink() {
 
       <ThreeSceneEnvironment />
       <ThreeLiquidBackground :palette="palette" />
-      <ThreeVinylRecord
-        :cover-src="coverSrc"
-        :accent="vibrantHex"
-        :speed="0.4"
-        :playing="playing && !!nowPlaying"
-      />
+      <!-- Léger décalage vers le haut pour mieux centrer le disque à l'écran -->
+      <TresGroup :position="[0, 0.6, 0]">
+        <ThreeVinylRecord
+          :cover-src="coverSrc"
+          :accent="vibrantHex"
+          :speed="0.4"
+          :playing="playing && !!nowPlaying"
+        />
+      </TresGroup>
 
       <TresAmbientLight :intensity="0.35" />
       <TresDirectionalLight
