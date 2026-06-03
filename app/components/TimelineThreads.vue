@@ -65,7 +65,7 @@ uniform vec2 uMouse;
 // Beaucoup de fils FINS qui s'entrelacent (comme l'original vue-bits).
 // Épaisseur en FRACTION DE LA HAUTEUR du ruban (0..1) → cohérente sur
 // tous les écrans, indépendante de la largeur et de la densité (DPR).
-const int u_line_count = 40;
+const int u_line_count = 30;
 const float u_line_width = 0.045;
 const float u_line_blur = 0.05;
 
