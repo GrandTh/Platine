@@ -444,42 +444,45 @@ async function copyLink() {
          Le panneau interne réactive les events. -->
     <aside class="pointer-events-none absolute inset-x-0 bottom-0 p-4 md:inset-y-0 md:right-0 md:left-auto md:flex md:w-96 md:items-center md:p-6">
       <div class="pointer-events-auto flex h-[45dvh] w-full flex-col rounded-3xl border border-white/15 bg-black/30 p-5 backdrop-blur-2xl md:h-[80dvh]">
-        <!-- Onglets : playlist / recherche / membres -->
+        <!-- Onglets (icônes) : playlist / recherche / membres -->
         <div class="flex items-center gap-1 rounded-xl bg-white/5 p-1">
           <button
-            class="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-sm font-semibold transition"
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 transition"
             :class="panelTab === 'queue' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
+            :title="t('panel.playlist')"
+            :aria-label="t('panel.playlist')"
             @click="panelTab = 'queue'"
           >
             <UIcon
               name="i-lucide-list-music"
-              class="size-4 shrink-0"
+              class="size-5"
             />
-            <span class="truncate">{{ t('panel.playlist') }}</span>
-            <span class="shrink-0 rounded-full bg-white/10 px-1.5 text-xs">{{ tracks.length }}</span>
+            <span class="rounded-full bg-white/10 px-1.5 text-xs font-semibold">{{ tracks.length }}</span>
           </button>
           <button
-            class="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-sm font-semibold transition"
+            class="flex flex-1 items-center justify-center rounded-lg py-2 transition"
             :class="panelTab === 'search' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
+            :title="t('panel.search')"
+            :aria-label="t('panel.search')"
             @click="panelTab = 'search'"
           >
             <UIcon
               name="i-lucide-search"
-              class="size-4 shrink-0"
+              class="size-5"
             />
-            <span class="truncate">{{ t('panel.search') }}</span>
           </button>
           <button
-            class="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-sm font-semibold transition"
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 transition"
             :class="panelTab === 'members' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
+            :title="t('panel.members')"
+            :aria-label="t('panel.members')"
             @click="panelTab = 'members'"
           >
             <UIcon
               name="i-lucide-users"
-              class="size-4 shrink-0"
+              class="size-5"
             />
-            <span class="truncate">{{ t('panel.members') }}</span>
-            <span class="shrink-0 rounded-full bg-white/10 px-1.5 text-xs">{{ members.length }}</span>
+            <span class="rounded-full bg-white/10 px-1.5 text-xs font-semibold">{{ members.length }}</span>
           </button>
         </div>
 
