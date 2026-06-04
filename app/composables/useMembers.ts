@@ -14,6 +14,13 @@ import { COLOR_PALETTE, userColor, shortId } from '~/composables/useUserColor'
 
 const HEARTBEAT_MS = 20_000
 const PRESENT_WINDOW_MS = 60_000
+// Pseudo mémorisé entre les rooms / sessions (par navigateur).
+const NAME_KEY = 'platine:name'
+
+function readSavedName(): string | null {
+  if (!import.meta.client) return null
+  return localStorage.getItem(NAME_KEY)?.trim() || null
+}
 
 interface DbMember {
   uid: string
@@ -91,15 +98,23 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   }
 
   async function join() {
+    // Réapplique le pseudo mémorisé (localStorage) à l'arrivée dans la room.
+    const saved = readSavedName()
     await supabase.from('members').upsert({
       room_id: roomId,
       uid,
-      last_seen: new Date().toISOString()
+      last_seen: new Date().toISOString(),
+      ...(saved ? { name: saved } : {})
     })
   }
 
   async function rename(name: string) {
     const clean = name.trim().slice(0, 24)
+    // Mémorise le pseudo pour les prochaines rooms / sessions.
+    if (import.meta.client) {
+      if (clean) localStorage.setItem(NAME_KEY, clean)
+      else localStorage.removeItem(NAME_KEY)
+    }
     await supabase
       .from('members')
       .update({ name: clean || null })
