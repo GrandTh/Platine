@@ -66,6 +66,14 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
 
   const myName = computed(() => members.value.find(m => m.isSelf)?.name ?? shortId(uid))
 
+  // Couleur d'un participant par son uid : SOURCE UNIQUE de couleur.
+  // Si le membre est présent → sa couleur (par rang, unique) ; sinon repli sur
+  // le hash de l'uid. Utilisée pour la pastille du membre ET pour la couleur de
+  // ses morceaux, afin qu'elles correspondent toujours.
+  function colorFor(targetUid: string): string {
+    return members.value.find(m => m.uid === targetUid)?.color ?? userColor(targetUid)
+  }
+
   async function fetchAll() {
     const { data } = await supabase
       .from('members')
@@ -174,5 +182,5 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
     leave()
   })
 
-  return { members, myName, rename }
+  return { members, myName, rename, colorFor }
 }

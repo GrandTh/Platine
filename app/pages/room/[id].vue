@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { PerspectiveCamera } from 'three'
-import { userColor } from '~/composables/useUserColor'
 import { EMOTES, twemojiUrl, useEmotes } from '~/composables/useEmotes'
 
 const { t } = useI18n()
@@ -73,7 +72,7 @@ const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, is
 
 // Membres de la room (présence + noms personnalisables, couleur par uid).
 // On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
-const { members, myName, rename } = useMembers(roomId.value, uid, ready)
+const { members, myName, rename, colorFor } = useMembers(roomId.value, uid, ready)
 
 // Vote pour skip (invités). Quorum = 50% des invités présents (hôte exclu).
 const {
@@ -843,7 +842,7 @@ async function copyLink() {
           <li
             v-if="nowPlaying"
             class="now-playing group flex items-center gap-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/15 transition"
-            :style="{ backgroundImage: `linear-gradient(to right, ${userColor(nowPlaying.addedBy)}b3 0%, transparent 45%)` }"
+            :style="{ backgroundImage: `linear-gradient(to right, ${colorFor(nowPlaying.addedBy)}b3 0%, transparent 45%)` }"
           >
             <UIcon
               name="i-lucide-volume-2"
@@ -878,7 +877,7 @@ async function copyLink() {
             v-for="(track, i) in upNext"
             :key="track.id"
             class="group flex items-center gap-3 rounded-xl bg-white/5 p-2.5 transition"
-            :style="{ backgroundImage: `linear-gradient(to right, ${userColor(track.addedBy)}66 0%, transparent 25%)` }"
+            :style="{ backgroundImage: `linear-gradient(to right, ${colorFor(track.addedBy)}66 0%, transparent 25%)` }"
           >
             <span class="w-4 shrink-0 text-center text-sm text-white/40">{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">
