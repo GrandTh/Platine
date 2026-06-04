@@ -35,6 +35,38 @@ const {
 } = useRoomLifecycle(roomId.value, uid, wantHost, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
+// Volume LOCAL (0–100) : propre à CE navigateur (via l'API YouTube), n'affecte
+// pas les autres participants. Mémorisé en localStorage.
+const volume = ref(100)
+if (import.meta.client) {
+  const raw = localStorage.getItem('platine:volume')
+  if (raw !== null) {
+    const saved = Number(raw)
+    if (Number.isFinite(saved) && saved >= 0 && saved <= 100) volume.value = saved
+  }
+}
+watch(volume, (v) => {
+  if (import.meta.client) localStorage.setItem('platine:volume', String(v))
+})
+
+// Coupe/rétablit le son localement (clic sur l'icône volume).
+let prevVolume = 100
+function toggleMuteLocal() {
+  if (volume.value > 0) {
+    prevVolume = volume.value
+    volume.value = 0
+  } else {
+    volume.value = prevVolume || 100
+  }
+}
+
+const volIcon = computed(() =>
+  volume.value === 0
+    ? 'i-lucide-volume-x'
+    : volume.value < 50
+      ? 'i-lucide-volume-1'
+      : 'i-lucide-volume-2')
+
 // File de morceaux + votes (temps réel via Supabase)
 const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
 
@@ -370,6 +402,7 @@ async function copyLink() {
       :artist="nowPlaying.artist"
       :muted="muted"
       :playing="playing"
+      :volume="volume"
       @ended="onTrackEnded"
       @progress="onProgress"
     />
@@ -451,6 +484,38 @@ async function copyLink() {
 
       <!-- Contrôles centrés -->
       <div class="pointer-events-auto flex items-center gap-4">
+        <!-- Volume LOCAL (ce navigateur uniquement) — masqué si pas de son -->
+        <div
+          v-if="!muted"
+          class="group relative"
+        >
+          <button
+            class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+            :aria-label="t('room.volume')"
+            @click="toggleMuteLocal"
+          >
+            <UIcon
+              :name="volIcon"
+              class="size-5"
+            />
+          </button>
+          <!-- Slider (apparaît au survol ; pb-2 fait le pont sans coupure) -->
+          <div class="absolute bottom-full left-1/2 hidden -translate-x-1/2 pb-2 group-hover:block">
+            <div class="flex items-center gap-2 rounded-xl border border-white/15 bg-black/80 px-3 py-2 backdrop-blur-xl">
+              <input
+                v-model.number="volume"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                class="h-1 w-28 cursor-pointer accent-white"
+                :aria-label="t('room.volume')"
+              >
+              <span class="w-8 shrink-0 text-right text-xs tabular-nums text-white/60">{{ volume }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Plein écran du clip (pour tout le monde) -->
         <button
           class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"

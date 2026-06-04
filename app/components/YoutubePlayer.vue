@@ -9,6 +9,8 @@ const props = defineProps<{
   muted?: boolean
   /** État lecture/pause partagé de la room. */
   playing?: boolean
+  /** Volume LOCAL (0–100) — n'affecte que ce navigateur. */
+  volume?: number
 }>()
 
 const emit = defineEmits<{
@@ -76,6 +78,7 @@ onMounted(async () => {
     events: {
       onReady: (e: { target: YTPlayer }) => {
         ready.value = true
+        e.target.setVolume(props.volume ?? 100)
         if (props.muted) e.target.mute()
         else e.target.unMute()
         if (props.playing !== false) {
@@ -122,6 +125,10 @@ watch(() => props.muted, (m) => {
   if (!player || !ready.value) return
   if (m) player.mute()
   else player.unMute()
+})
+
+watch(() => props.volume, (v) => {
+  if (player && ready.value && typeof v === 'number') player.setVolume(v)
 })
 
 watch(() => props.playing, (p) => {
