@@ -44,3 +44,41 @@ pnpm dev
 ```
 
 L'app tourne sur **http://localhost:3000**.
+
+---
+
+## 🐳 Base de données locale (Docker)
+
+```bash
+# 1. Crée la config Supabase locale
+npx supabase init
+
+# 2. Démarre la stack locale (Postgres + Realtime + Studio)
+npx supabase start
+
+# 3. Initialise la base avec le schéma du projet
+#    (copie le contenu de supabase/setup.sql dans le SQL Editor
+#     du Studio local, ou applique-le via psql)
+```
+
+Récupère l'URL et la clé de l'instance locale :
+
+```bash
+npx supabase status
+```
+
+Puis renseigne-les dans `.env` :
+
+```bash
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_KEY=<clé publishable locale>
+```
+
+### Au quotidien
+
+```bash
+npx supabase start   # démarre la base locale (Docker doit tourner)
+pnpm dev             # lance l'app sur la base locale
+
+npx supabase stop    # arrête la base (les données locales sont conservées)
+```
