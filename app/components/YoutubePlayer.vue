@@ -59,7 +59,7 @@ function onFsChange() {
   fullscreen.value = document.fullscreenElement === clip.value
 }
 
-defineExpose({ seek, enterFullscreen })
+defineExpose({ seek, enterFullscreen, needsGesture, resume })
 
 onMounted(async () => {
   if (!host.value) return
@@ -146,7 +146,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="pointer-events-auto absolute left-6 top-20 w-64 md:left-10 md:top-24 md:w-72">
+  <!-- Vignette : visible en haut à gauche sur desktop/tablette paysage (lg+).
+       Sous lg (mobile + tablette portrait) elle est déportée hors-écran :
+       l'iframe reste vivante (audio), le plein écran refonctionne, et le titre
+       est affiché centré sous le disque par la page. -->
+  <div class="pointer-events-auto absolute top-20 -left-[200vw] w-64 lg:left-10 lg:top-24 lg:w-72">
     <!-- Clip -->
     <!-- En mode normal : faux read-only (le calque bloque les clics vers
          l'iframe, sans rien déclencher). En plein écran natif : le calque

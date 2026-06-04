@@ -86,6 +86,50 @@ const { active: emotes, send: sendEmote } = useEmotes(roomId.value)
 // Onglets du panneau latéral : recherche / playlist / membres
 const panelTab = ref<'search' | 'queue' | 'members'>('queue')
 
+// --- Bottom sheet (mobile + tablette portrait, < lg) ---
+// Le panneau est un tiroir qu'on tire vers le haut. Replié : seule la poignée
+// + la barre d'onglets dépassent (SHEET_PEEK). Au-dessus de lg : panneau
+// latéral classique (le sheet est neutralisé en CSS).
+const sheetRef = ref<HTMLElement | null>(null)
+const sheetOpen = ref(false)
+const sheetDrag = ref<number | null>(null) // translateY (px) pendant un drag
+const SHEET_PEEK = 96 // px visibles quand replié — à garder synchro avec la classe translate-y
+let dragStartY = 0
+let dragStartT = 0
+
+function sheetMax() {
+  return (sheetRef.value?.offsetHeight ?? 0) - SHEET_PEEK
+}
+function onSheetDown(e: PointerEvent) {
+  dragStartY = e.clientY
+  dragStartT = sheetOpen.value ? 0 : sheetMax()
+  sheetDrag.value = dragStartT
+  window.addEventListener('pointermove', onSheetMove)
+  window.addEventListener('pointerup', onSheetUp)
+}
+function onSheetMove(e: PointerEvent) {
+  const max = sheetMax()
+  sheetDrag.value = Math.max(0, Math.min(max, dragStartT + (e.clientY - dragStartY)))
+}
+function onSheetUp() {
+  const max = sheetMax()
+  const moved = Math.abs((sheetDrag.value ?? dragStartT) - dragStartT)
+  if (moved < 5) {
+    // Simple tap sur la poignée → bascule.
+    sheetOpen.value = !sheetOpen.value
+  } else {
+    // Snap : ouvert si on a dépassé la moitié vers le haut.
+    sheetOpen.value = (sheetDrag.value ?? max) < max / 2
+  }
+  sheetDrag.value = null
+  window.removeEventListener('pointermove', onSheetMove)
+  window.removeEventListener('pointerup', onSheetUp)
+}
+// Tap sur un onglet → ouvre le sheet (pratique sur mobile).
+function openSheet() {
+  sheetOpen.value = true
+}
+
 // Rename inline
 const renaming = ref(false)
 const nameDraft = ref('')
@@ -115,7 +159,7 @@ watch([currentTrackId, sorted, isHost, ready], () => {
 }, { immediate: true })
 
 // --- Progression + seek (timeline) ---
-const playerRef = useTemplateRef<{ seek: (s: number) => void, enterFullscreen: () => void }>('playerRef')
+const playerRef = useTemplateRef<{ seek: (s: number) => void, enterFullscreen: () => void, needsGesture: boolean, resume: () => void }>('playerRef')
 const current = ref(0)
 const duration = ref(0)
 const progress = computed(() => (duration.value ? current.value / duration.value : 0))
@@ -337,7 +381,7 @@ async function copyLink() {
     </TresCanvas>
 
     <!-- ───────── Barre du haut ───────── -->
-    <header class="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-5 md:p-8">
+    <header class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-5 md:p-8 lg:items-center">
       <!-- Wordmark "Platine" centré (même typo + dégradé que la home) -->
       <NuxtLink
         to="/"
@@ -358,7 +402,9 @@ async function copyLink() {
           />
         </NuxtLink>
 
-        <div class="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 backdrop-blur-xl">
+        <!-- Code room + mode : inline à gauche sur DESKTOP uniquement (lg+).
+             Sur mobile/tablette portrait, le code passe dans la pile sous FR. -->
+        <div class="hidden items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 backdrop-blur-xl lg:flex">
           <UIcon
             name="i-lucide-lock"
             class="size-3.5 text-white/60"
@@ -367,31 +413,45 @@ async function copyLink() {
           <span class="text-xs text-white/45">{{ t('room.private') }}</span>
         </div>
 
-        <!-- Mode d'écoute -->
-        <div class="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-xl">
+        <!-- Mode d'écoute (desktop uniquement) -->
+        <div class="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-xl lg:flex">
           <UIcon
             :name="mode === 'speaker' ? 'i-lucide-volume-2' : 'i-lucide-laptop'"
             class="size-4 text-white/70"
           />
-          <span class="hidden text-xs text-white/60 sm:inline">
+          <span class="text-xs text-white/60">
             {{ mode === 'speaker' ? t('room.modeSpeaker') : t('room.modeEach') }}
           </span>
         </div>
       </div>
 
-      <div class="pointer-events-auto flex items-center gap-2">
-        <LangSwitch />
-        <button
-          class="flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition hover:opacity-90"
-          :style="{ backgroundColor: vibrantHex }"
-          @click="copyLink"
-        >
+      <div class="pointer-events-auto flex flex-col items-end gap-2">
+        <!-- Ligne du haut : FR/EN + Inviter (icône seule < lg, avec texte sur desktop) -->
+        <div class="flex items-center gap-2">
+          <LangSwitch />
+          <button
+            class="flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-black transition hover:opacity-90 lg:px-4"
+            :style="{ backgroundColor: vibrantHex }"
+            :aria-label="t('room.invite')"
+            @click="copyLink"
+          >
+            <UIcon
+              :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
+              class="size-4"
+            />
+            <span class="hidden lg:inline">{{ copied ? t('room.linkCopied') : t('room.invite') }}</span>
+          </button>
+        </div>
+
+        <!-- Sous FR/EN (mobile + tablette portrait uniquement) : code room -->
+        <div class="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 backdrop-blur-xl lg:hidden">
           <UIcon
-            :name="copied ? 'i-lucide-check' : 'i-lucide-link'"
-            class="size-4"
+            name="i-lucide-lock"
+            class="size-3.5 text-white/60"
           />
-          {{ copied ? t('room.linkCopied') : t('room.invite') }}
-        </button>
+          <span class="text-sm font-semibold tracking-[0.2em]">{{ roomId }}</span>
+          <span class="text-xs text-white/45">{{ t('room.private') }}</span>
+        </div>
       </div>
     </header>
 
@@ -452,8 +512,32 @@ async function copyLink() {
     <!-- ───────── Timeline classique + contrôles ───────── -->
     <div
       v-if="nowPlaying"
-      class="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 pb-5"
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 pb-28 lg:pb-5"
     >
+      <!-- Titre centré sous le disque (mobile + tablette portrait uniquement ;
+           sur desktop le titre est dans la vignette en haut à gauche). -->
+      <div class="pointer-events-auto w-full max-w-xs px-5 text-center lg:hidden">
+        <!-- Bouton de déblocage du son si l'autoplay est bloqué -->
+        <button
+          v-if="playerRef?.needsGesture"
+          class="mb-2 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-xl transition hover:bg-white/25"
+          @click="playerRef?.resume()"
+        >
+          <UIcon
+            name="i-lucide-volume-2"
+            class="size-4"
+          />
+          {{ t('room.joinListen') }}
+        </button>
+        <MarqueeText
+          :text="nowPlaying.title"
+          class="font-semibold text-white"
+        />
+        <p class="truncate text-sm text-white/55">
+          {{ nowPlaying.artist || '—' }}
+        </p>
+      </div>
+
       <!-- Barre de progression (1/3 de l'écran, centrée) -->
       <div class="pointer-events-auto w-full max-w-md px-5">
         <!-- Zone cliquable élargie (padding vertical) pour viser facilement la
@@ -583,7 +667,7 @@ async function copyLink() {
 
     <!-- ───────── Emotes / réactions (temps réel) ───────── -->
     <!-- Barre des 5 emotes (bas gauche) -->
-    <div class="pointer-events-auto absolute bottom-5 left-5 z-30 flex items-center gap-1 rounded-full border border-white/15 bg-black/40 p-1.5 backdrop-blur-xl md:bottom-8 md:left-8">
+    <div class="pointer-events-auto absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-full border border-white/15 bg-black/40 p-1.5 backdrop-blur-xl md:bottom-28 md:left-8 md:top-auto md:translate-y-0 md:flex-row lg:bottom-8">
       <button
         v-for="e in EMOTES"
         :key="e.code"
@@ -616,8 +700,23 @@ async function copyLink() {
     <!-- pointer-events-none sur l'aside : sa zone transparente (haut, en
          desktop md:inset-y-0) ne doit pas intercepter les clics du header.
          Le panneau interne réactive les events. -->
-    <aside class="pointer-events-none absolute inset-x-0 bottom-0 p-4 md:inset-y-0 md:right-0 md:left-auto md:flex md:w-96 md:items-center md:p-6">
-      <div class="pointer-events-auto flex h-[45dvh] w-full flex-col rounded-3xl border border-white/15 bg-black/30 p-5 backdrop-blur-2xl md:h-[80dvh]">
+    <aside
+      ref="sheetRef"
+      class="pointer-events-auto fixed inset-x-0 bottom-0 z-30 h-[85dvh] px-2 lg:pointer-events-none lg:absolute lg:inset-y-0 lg:right-0 lg:bottom-auto lg:left-auto lg:flex lg:h-full lg:w-96 lg:items-center lg:px-0 lg:pr-6 lg:!translate-y-0"
+      :class="sheetDrag === null
+        ? ['transition-transform duration-300 ease-out', sheetOpen ? 'translate-y-0' : 'translate-y-[calc(100%-96px)]']
+        : ''"
+      :style="sheetDrag !== null ? { transform: `translateY(${sheetDrag}px)`, transition: 'none' } : undefined"
+    >
+      <div class="pointer-events-auto flex h-full w-full flex-col rounded-t-3xl border border-white/15 border-b-0 bg-black/40 p-4 backdrop-blur-2xl lg:h-[80dvh] lg:rounded-3xl lg:border-b lg:bg-black/30 lg:p-5">
+        <!-- Poignée de drag (mobile / tablette portrait uniquement) -->
+        <div
+          class="mb-3 flex shrink-0 cursor-grab touch-none justify-center lg:hidden"
+          @pointerdown="onSheetDown"
+        >
+          <span class="h-1.5 w-10 rounded-full bg-white/30" />
+        </div>
+
         <!-- Onglets (icônes) : playlist / recherche / membres -->
         <div class="flex items-center gap-1 rounded-xl bg-white/5 p-1">
           <button
@@ -625,7 +724,7 @@ async function copyLink() {
             :class="panelTab === 'queue' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             :title="t('panel.playlist')"
             :aria-label="t('panel.playlist')"
-            @click="panelTab = 'queue'"
+            @click="panelTab = 'queue'; openSheet()"
           >
             <UIcon
               name="i-lucide-list-music"
@@ -638,7 +737,7 @@ async function copyLink() {
             :class="panelTab === 'search' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             :title="t('panel.search')"
             :aria-label="t('panel.search')"
-            @click="panelTab = 'search'"
+            @click="panelTab = 'search'; openSheet()"
           >
             <UIcon
               name="i-lucide-search"
@@ -650,7 +749,7 @@ async function copyLink() {
             :class="panelTab === 'members' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
             :title="t('panel.members')"
             :aria-label="t('panel.members')"
-            @click="panelTab = 'members'"
+            @click="panelTab = 'members'; openSheet()"
           >
             <UIcon
               name="i-lucide-users"
