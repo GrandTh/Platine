@@ -17,6 +17,38 @@
   font-family: 'Roboto Flex', sans-serif;
 }
 
+/* Marquee au survol (composant MarqueeText) : un titre tronqué défile
+   horizontalement quand on survole sa LIGNE parente (classe `group`).
+   Les variables --marquee-shift / --marquee-dur sont calculées en JS. */
+.marquee {
+  overflow: hidden;
+}
+.group:hover .marquee > span {
+  overflow: visible;
+  text-overflow: clip;
+  animation: marquee-loop var(--marquee-dur, 0s) linear infinite;
+}
+/* Boucle : défile vers la fin DÈS le survol (aucune pause au départ) → courte
+   pause à la fin → revient au début → recommence.
+   Les % de défilement (0→45 et 55→100) doivent matcher SCROLL_FRACTION (0.45)
+   dans MarqueeText.vue. */
+@keyframes marquee-loop {
+  0% {
+    transform: translateX(0);
+  }
+  45%, 55% {
+    transform: translateX(var(--marquee-shift, 0px));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .marquee > span {
+    animation: none;
+  }
+}
+
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
   --font-display: 'Gyanko', sans-serif;

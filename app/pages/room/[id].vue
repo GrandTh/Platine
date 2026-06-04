@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PerspectiveCamera } from 'three'
 import { userColor } from '~/composables/useUserColor'
+import { EMOTES, twemojiUrl, useEmotes } from '~/composables/useEmotes'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -79,6 +80,9 @@ const {
   skipCount, hasVotedSkip, quorum, active: skipActive,
   lastVoterName, lastVoterColor, toggleSkipVote, onQuorum
 } = useSkipVote(roomId.value, uid, currentTrackId, members)
+
+// Emotes / réactions en temps réel (broadcast Supabase, rendu Twemoji).
+const { active: emotes, send: sendEmote } = useEmotes(roomId.value)
 
 // Onglets du panneau latéral : recherche / playlist / membres
 const panelTab = ref<'search' | 'queue' | 'members'>('queue')
@@ -578,6 +582,37 @@ async function copyLink() {
       </div>
     </div>
 
+    <!-- ───────── Emotes / réactions (temps réel) ───────── -->
+    <!-- Barre des 5 emotes (bas gauche) -->
+    <div class="pointer-events-auto absolute bottom-5 left-5 z-30 flex items-center gap-1 rounded-full border border-white/15 bg-black/40 p-1.5 backdrop-blur-xl md:bottom-8 md:left-8">
+      <button
+        v-for="e in EMOTES"
+        :key="e.code"
+        class="grid size-9 cursor-pointer place-items-center rounded-full transition hover:bg-white/15 active:scale-90"
+        :aria-label="e.label"
+        @click="sendEmote(e.code)"
+      >
+        <img
+          :src="twemojiUrl(e.code)"
+          :alt="e.char"
+          class="size-5 select-none"
+          draggable="false"
+        >
+      </button>
+    </div>
+
+    <!-- Overlay des emotes flottantes (fade-in par le bas + rotation aléatoire) -->
+    <div class="pointer-events-none absolute inset-0 z-40 overflow-hidden">
+      <img
+        v-for="e in emotes"
+        :key="e.id"
+        :src="twemojiUrl(e.code)"
+        alt=""
+        class="emote-float absolute bottom-28 size-12 select-none md:size-16"
+        :style="{ 'left': `${e.left}%`, '--rot': `${e.rot}deg` }"
+      >
+    </div>
+
     <!-- ───────── Panneau file d'attente ───────── -->
     <!-- pointer-events-none sur l'aside : sa zone transparente (haut, en
          desktop md:inset-y-0) ne doit pas intercepter les clics du header.
@@ -738,7 +773,7 @@ async function copyLink() {
               :key="r.videoId"
             >
               <button
-                class="flex w-full items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
+                class="group flex w-full items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
                 @click="pick(r)"
               >
                 <img
@@ -747,7 +782,10 @@ async function copyLink() {
                   class="h-11 w-11 shrink-0 rounded object-cover"
                 >
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium">{{ r.title }}</span>
+                  <MarqueeText
+                    :text="r.title"
+                    class="text-sm font-medium"
+                  />
                   <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
                 </span>
                 <!-- Déjà dans la file → on propose un vote, pas un doublon -->
@@ -804,7 +842,7 @@ async function copyLink() {
           <!-- Morceau en lecture -->
           <li
             v-if="nowPlaying"
-            class="now-playing flex items-center gap-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/15 transition"
+            class="now-playing group flex items-center gap-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/15 transition"
             :style="{ backgroundImage: `linear-gradient(to right, ${userColor(nowPlaying.addedBy)}b3 0%, transparent 45%)` }"
           >
             <UIcon
@@ -812,9 +850,10 @@ async function copyLink() {
               class="size-4 shrink-0 text-white/80"
             />
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">
-                {{ nowPlaying.title }}
-              </p>
+              <MarqueeText
+                :text="nowPlaying.title"
+                class="text-sm font-medium"
+              />
               <p class="truncate text-xs text-white/50">
                 {{ nowPlaying.artist || '—' }}
               </p>
@@ -838,14 +877,15 @@ async function copyLink() {
           <li
             v-for="(track, i) in upNext"
             :key="track.id"
-            class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5 transition"
+            class="group flex items-center gap-3 rounded-xl bg-white/5 p-2.5 transition"
             :style="{ backgroundImage: `linear-gradient(to right, ${userColor(track.addedBy)}66 0%, transparent 25%)` }"
           >
             <span class="w-4 shrink-0 text-center text-sm text-white/40">{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">
-                {{ track.title }}
-              </p>
+              <MarqueeText
+                :text="track.title"
+                class="text-sm font-medium"
+              />
               <p class="truncate text-xs text-white/50">
                 {{ track.artist || '—' }}
               </p>
@@ -922,5 +962,30 @@ async function copyLink() {
 .skip-toast-leave-to {
   opacity: 0;
   transform: translate(-50%, -10px);
+}
+
+/* Emotes flottantes : apparition par le bas, rotation figée (--rot),
+   puis disparition vers le haut. Style réactions Meet/Teams. */
+.emote-float {
+  animation: emote-float 1.1s ease-out forwards;
+  will-change: transform, opacity;
+}
+@keyframes emote-float {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) rotate(var(--rot, 0deg)) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--rot, 0deg)) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-32px) rotate(var(--rot, 0deg)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-96px) rotate(var(--rot, 0deg)) scale(0.9);
+  }
 }
 </style>
