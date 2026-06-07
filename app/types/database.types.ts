@@ -12,6 +12,7 @@ export type Database = {
           mode: 'speaker' | 'each'
           playing: boolean
           current_track_id: string | null
+          shuffle_seed: string | null
           last_active: string
           created_at: string
         }
@@ -22,6 +23,7 @@ export type Database = {
           mode?: 'speaker' | 'each'
           playing?: boolean
           current_track_id?: string | null
+          shuffle_seed?: string | null
           last_active?: string
           created_at?: string
         }
@@ -32,6 +34,7 @@ export type Database = {
           mode?: 'speaker' | 'each'
           playing?: boolean
           current_track_id?: string | null
+          shuffle_seed?: string | null
           last_active?: string
           created_at?: string
         }

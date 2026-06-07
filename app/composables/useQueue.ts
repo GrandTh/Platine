@@ -4,6 +4,19 @@
  * L'API publique (addTrack / toggleVote / removeTrack / sorted / nowPlaying)
  * est inchangée par rapport au prototype BroadcastChannel : l'UI ne bouge pas.
  */
+import type { Ref } from 'vue'
+
+// Rang pseudo-aléatoire déterministe (FNV-1a) à partir d'un id + seed partagé.
+// Même seed → même ordre pour tous les clients.
+function seededRank(id: string, seed: string): number {
+  let h = 2166136261
+  const s = id + seed
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
 
 interface DbTrack {
   id: string
@@ -43,7 +56,7 @@ export interface NewTrack {
   externalId: string
 }
 
-export function useQueue(roomId: string, uid: string) {
+export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string | null>) {
   const supabase = useSupabaseClient()
 
   const rows = ref<DbTrack[]>([])
@@ -65,12 +78,20 @@ export function useQueue(roomId: string, uid: string) {
 
   const tracks = computed<QueueTrack[]>(() => rows.value.map(toQueueTrack))
 
-  // Tri : plus de votes d'abord, puis le plus ancien (FIFO à égalité).
-  const sorted = computed(() =>
-    [...tracks.value].sort((a, b) =>
-      b.voters.length - a.voters.length || a.createdAt - b.createdAt
-    )
-  )
+  // Tri : plus de votes d'abord. À égalité de votes :
+  //  - morceaux à 0 vote + shuffle actif → ordre pseudo-aléatoire (seed partagé)
+  //  - sinon → le plus ancien d'abord (FIFO).
+  // Les morceaux votés gardent donc toujours la priorité sur les 0-vote.
+  const sorted = computed(() => {
+    const seed = shuffleSeed?.value
+    return [...tracks.value].sort((a, b) => {
+      if (b.voters.length !== a.voters.length) return b.voters.length - a.voters.length
+      if (seed && a.voters.length === 0) {
+        return seededRank(a.id, seed) - seededRank(b.id, seed)
+      }
+      return a.createdAt - b.createdAt
+    })
+  })
 
   /** Morceau en tête de file = en lecture. */
   const nowPlaying = computed<QueueTrack | null>(() => sorted.value[0] ?? null)
@@ -127,16 +148,21 @@ export function useQueue(roomId: string, uid: string) {
    */
   async function addMany(list: NewTrack[]) {
     const existingKeys = new Set(rows.value.map(r => `${r.source}:${r.external_id}`))
+    // created_at incrémental (base + index) : PRÉSERVE l'ordre de la playlist.
+    // Sinon un insert batch donne le même now() à toutes les lignes → l'ordre
+    // FIFO serait indéfini. Base = maintenant → l'import se place après la file.
+    const base = Date.now()
     const toInsert = list
       .filter(t => !existingKeys.has(`${t.source}:${t.externalId}`))
-      .map(t => ({
+      .map((t, i) => ({
         room_id: roomId,
         title: t.title,
         artist: t.artist ?? '',
         cover: t.cover ?? '',
         source: t.source,
         external_id: t.externalId,
-        added_by: uid
+        added_by: uid,
+        created_at: new Date(base + i).toISOString()
       }))
     if (toInsert.length) {
       await supabase.from('tracks').insert(toInsert) // aucun vote → 0 par défaut

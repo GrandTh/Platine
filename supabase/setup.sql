@@ -26,6 +26,7 @@ create table if not exists public.rooms (
                 check (mode in ('speaker', 'each')),
   playing     boolean not null default true,
   current_track_id uuid,                             -- morceau en lecture (figé)
+  shuffle_seed text,                                 -- graine de mélange des 0-vote
   last_active timestamptz not null default now(),
   created_at  timestamptz not null default now()
 );

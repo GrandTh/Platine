@@ -31,6 +31,7 @@ export function useRoomLifecycle(
   const hostId = ref<string | null>(null)
   const playing = ref(true)
   const currentTrackId = ref<string | null>(null)
+  const shuffleSeed = ref<string | null>(null)
   let timer: ReturnType<typeof setInterval> | null = null
   let channel: ReturnType<typeof supabase.channel> | null = null
 
@@ -57,7 +58,7 @@ export function useRoomLifecycle(
   async function loadRoom() {
     const { data } = await supabase
       .from('rooms')
-      .select('host_id, mode, playing, current_track_id')
+      .select('host_id, mode, playing, current_track_id, shuffle_seed')
       .eq('id', roomId)
       .maybeSingle()
     if (data) {
@@ -67,6 +68,7 @@ export function useRoomLifecycle(
       isHost.value = data.host_id === uid
       playing.value = data.playing
       currentTrackId.value = data.current_track_id
+      shuffleSeed.value = data.shuffle_seed
     } else {
       exists.value = false
     }
@@ -85,6 +87,15 @@ export function useRoomLifecycle(
     if (!isHost.value) return
     currentTrackId.value = trackId // optimiste
     await supabase.from('rooms').update({ current_track_id: trackId }).eq('id', roomId)
+  }
+
+  /** Re-mélange les morceaux à 0 vote (hôte uniquement) : nouvelle graine,
+   *  propagée à tous via Realtime → tout le monde re-trie pareil. */
+  async function reshuffle() {
+    if (!isHost.value) return
+    const seed = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
+    shuffleSeed.value = seed // optimiste
+    await supabase.from('rooms').update({ shuffle_seed: seed }).eq('id', roomId)
   }
 
   onMounted(async () => {
@@ -121,9 +132,10 @@ export function useRoomLifecycle(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
         (payload) => {
-          const row = payload.new as { playing?: boolean, current_track_id?: string | null }
+          const row = payload.new as { playing?: boolean, current_track_id?: string | null, shuffle_seed?: string | null }
           if (typeof row.playing === 'boolean') playing.value = row.playing
           if ('current_track_id' in row) currentTrackId.value = row.current_track_id ?? null
+          if ('shuffle_seed' in row) shuffleSeed.value = row.shuffle_seed ?? null
         }
       )
       .on('broadcast', { event: 'seek' }, ({ payload }) => {
@@ -143,6 +155,6 @@ export function useRoomLifecycle(
   return {
     exists, ready, mode: roomMode, isHost, hostId,
     playing, togglePlaying, broadcastSeek, onSeek,
-    currentTrackId, setCurrentTrack
+    currentTrackId, setCurrentTrack, shuffleSeed, reshuffle
   }
 }

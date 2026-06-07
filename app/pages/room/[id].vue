@@ -31,7 +31,8 @@ const uid = useAnonId()
 // Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
 const {
   exists, ready, mode, isHost, playing, togglePlaying,
-  broadcastSeek, onSeek, currentTrackId, setCurrentTrack
+  broadcastSeek, onSeek, currentTrackId, setCurrentTrack,
+  shuffleSeed, reshuffle
 } = useRoomLifecycle(roomId.value, uid, wantHost, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
@@ -68,7 +69,7 @@ const volIcon = computed(() =>
       : 'i-lucide-volume-2')
 
 // File de morceaux + votes (temps réel via Supabase)
-const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, clearQueue, hasVoted, isQueued } = useQueue(roomId.value, uid)
+const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, clearQueue, hasVoted, isQueued } = useQueue(roomId.value, uid, shuffleSeed)
 
 // Membres de la room (présence + noms personnalisables, couleur par uid).
 // On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
@@ -225,6 +226,12 @@ function clearUpNext() {
   if (!isHost.value) return
   clearQueue(currentTrackId.value)
 }
+
+// Mélange (hôte) : ne concerne que les morceaux à 0 vote (issus des playlists).
+// On l'affiche seulement s'il y a au moins 2 morceaux à 0 vote à venir.
+const canShuffle = computed(() =>
+  isHost.value && upNext.value.filter(t => t.voters.length === 0).length >= 2
+)
 
 // Recherche YouTube (débouncée, via la route serveur)
 const { query: search, results, loading: searching, clear, playlistId, submit: submitSearch } = useYoutubeSearch()
@@ -976,11 +983,22 @@ async function copyLink() {
             </button>
           </li>
 
-          <!-- Vider la file à venir (hôte uniquement) -->
+          <!-- Actions hôte sur la file à venir : mélanger (0-vote) + vider -->
           <li
             v-if="isHost && upNext.length"
-            class="flex justify-end"
+            class="flex items-center justify-end gap-1"
           >
+            <button
+              v-if="canShuffle"
+              class="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-white/45 transition hover:bg-white/10 hover:text-white/80"
+              @click="reshuffle"
+            >
+              <UIcon
+                name="i-lucide-shuffle"
+                class="size-3.5"
+              />
+              {{ t('panel.shuffle') }}
+            </button>
             <button
               class="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-white/45 transition hover:bg-white/10 hover:text-white/80"
               @click="clearUpNext"
