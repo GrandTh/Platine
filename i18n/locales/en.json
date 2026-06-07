@@ -9,6 +9,11 @@
     "create": "Create a room",
     "join": "Join a room"
   },
+  "footer": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "back": "Home"
+  },
   "createModal": {
     "title": "How are you listening?",
     "subtitle": "Everyone sees the clip. Only the sound changes depending on the mode.",

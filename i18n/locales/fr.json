@@ -9,6 +9,11 @@
     "create": "Créer une room",
     "join": "Rejoindre une room"
   },
+  "footer": {
+    "privacy": "Confidentialité",
+    "terms": "Conditions",
+    "back": "Accueil"
+  },
   "createModal": {
     "title": "Comment vous écoutez ?",
     "subtitle": "Tout le monde voit le clip. Seul le son change selon le mode.",

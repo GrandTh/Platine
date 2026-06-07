@@ -82,6 +82,23 @@ function joinRoom() {
       </div>
     </main>
 
+    <!-- Liens légaux discrets en bas de page -->
+    <footer class="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-3 p-4 text-xs text-white/35">
+      <NuxtLink
+        to="/confidentialite"
+        class="transition hover:text-white/70"
+      >
+        {{ t('footer.privacy') }}
+      </NuxtLink>
+      <span class="text-white/20">·</span>
+      <NuxtLink
+        to="/conditions"
+        class="transition hover:text-white/70"
+      >
+        {{ t('footer.terms') }}
+      </NuxtLink>
+    </footer>
+
     <!-- ───────── Modal : Créer une room ───────── -->
     <div
       v-if="showCreate"
