@@ -459,7 +459,6 @@ async function copyLink() {
     <YoutubePlayer
       v-if="nowPlaying"
       ref="playerRef"
-      :key="nowPlaying.id"
       :video-id="nowPlaying.externalId"
       :title="nowPlaying.title"
       :artist="nowPlaying.artist"
