@@ -68,7 +68,7 @@ const volIcon = computed(() =>
       : 'i-lucide-volume-2')
 
 // File de morceaux + votes (temps réel via Supabase)
-const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, hasVoted, isQueued } = useQueue(roomId.value, uid)
+const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, clearQueue, hasVoted, isQueued } = useQueue(roomId.value, uid)
 
 // Membres de la room (présence + noms personnalisables, couleur par uid).
 // On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
@@ -218,6 +218,12 @@ onQuorum(() => {
 })
 function nextTrack() {
   advance()
+}
+
+// Vide la file à venir (hôte) : supprime tous les morceaux sauf celui en cours.
+function clearUpNext() {
+  if (!isHost.value) return
+  clearQueue(currentTrackId.value)
 }
 
 // Recherche YouTube (débouncée, via la route serveur)
@@ -967,6 +973,23 @@ async function copyLink() {
                 name="i-lucide-x"
                 class="size-4"
               />
+            </button>
+          </li>
+
+          <!-- Vider la file à venir (hôte uniquement) -->
+          <li
+            v-if="isHost && upNext.length"
+            class="flex justify-end"
+          >
+            <button
+              class="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-white/45 transition hover:bg-white/10 hover:text-white/80"
+              @click="clearUpNext"
+            >
+              <UIcon
+                name="i-lucide-list-x"
+                class="size-3.5"
+              />
+              {{ t('panel.clearQueue') }}
             </button>
           </li>
 

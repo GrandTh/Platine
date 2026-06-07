@@ -172,6 +172,19 @@ export function useQueue(roomId: string, uid: string) {
     await supabase.from('tracks').delete().eq('id', trackId)
   }
 
+  /**
+   * Vide la file À VENIR : supprime tous les morceaux de la room sauf celui en
+   * cours (keepId). Le morceau en lecture continue. Réservé à l'hôte (côté UI).
+   * Les votes/skip_votes des morceaux retirés partent en cascade (DB).
+   */
+  async function clearQueue(keepId: string | null) {
+    // Optimiste : on ne garde que le morceau en cours.
+    rows.value = rows.value.filter(r => r.id === keepId)
+    let query = supabase.from('tracks').delete().eq('room_id', roomId)
+    if (keepId) query = query.neq('id', keepId)
+    await query
+  }
+
   // --- Chargement initial ---
 
   async function fetchAll() {
@@ -232,6 +245,7 @@ export function useQueue(roomId: string, uid: string) {
     addMany,
     toggleVote,
     removeTrack,
+    clearQueue,
     hasVoted,
     isQueued
   }
