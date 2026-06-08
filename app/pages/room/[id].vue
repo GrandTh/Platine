@@ -685,7 +685,7 @@ async function copyLink() {
         :key="e.code"
         class="grid size-9 cursor-pointer place-items-center rounded-full transition hover:bg-white/15 active:scale-90"
         :aria-label="e.label"
-        @click="sendEmote(e.code)"
+        @click="sendEmote(e.code, myName, colorFor(uid))"
       >
         <img
           :src="twemojiUrl(e.code)"
@@ -696,16 +696,26 @@ async function copyLink() {
       </button>
     </div>
 
-    <!-- Overlay des emotes flottantes (fade-in par le bas + rotation aléatoire) -->
+    <!-- Overlay des emotes flottantes : emote (rotation aléatoire) + pseudo de
+         l'expéditeur en dessous → on voit qui a réagi, sans surcharger. -->
     <div class="pointer-events-none absolute inset-0 z-40 overflow-hidden">
-      <img
+      <div
         v-for="e in emotes"
         :key="e.id"
-        :src="twemojiUrl(e.code)"
-        alt=""
-        class="emote-float absolute bottom-28 size-12 select-none md:size-16"
+        class="emote-float absolute bottom-28 flex flex-col items-center"
         :style="{ 'left': `${e.left}%`, '--rot': `${e.rot}deg` }"
       >
+        <img
+          :src="twemojiUrl(e.code)"
+          alt=""
+          class="emote-emoji size-12 select-none md:size-16"
+        >
+        <span
+          v-if="e.name"
+          class="mt-1 max-w-[7rem] truncate rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold backdrop-blur-sm"
+          :style="{ color: e.color || '#fff' }"
+        >{{ e.name }}</span>
+      </div>
     </div>
 
     <!-- ───────── Panneau file d'attente ───────── -->
@@ -782,10 +792,18 @@ async function copyLink() {
               :key="m.uid"
               class="flex items-center gap-3 rounded-xl bg-white/5 p-2.5"
             >
+              <!-- Avatar : cercle à la couleur du membre + animal (Twemoji) -->
               <span
-                class="size-3 shrink-0 rounded-full"
-                :style="{ backgroundColor: m.color }"
-              />
+                class="grid size-8 shrink-0 place-items-center rounded-full"
+                :style="{ backgroundColor: `${m.color}33`, boxShadow: `inset 0 0 0 1.5px ${m.color}` }"
+              >
+                <img
+                  :src="twemojiUrl(m.emoji)"
+                  alt=""
+                  class="size-5 select-none"
+                  draggable="false"
+                >
+              </span>
               <!-- Édition du nom (soi-même) -->
               <template v-if="m.isSelf && renaming">
                 <input
@@ -1102,28 +1120,31 @@ async function copyLink() {
   transform: translate(-50%, -10px);
 }
 
-/* Emotes flottantes : apparition par le bas, rotation figée (--rot),
-   puis disparition vers le haut. Style réactions Meet/Teams. */
+/* Emotes flottantes : le conteneur monte/fond (le pseudo reste droit),
+   l'emoji garde une rotation figée (--rot). Style réactions Meet/Teams. */
 .emote-float {
   animation: emote-float 1.1s ease-out forwards;
   will-change: transform, opacity;
 }
+.emote-emoji {
+  transform: rotate(var(--rot, 0deg));
+}
 @keyframes emote-float {
   0% {
     opacity: 0;
-    transform: translateY(40px) rotate(var(--rot, 0deg)) scale(0.6);
+    transform: translateY(40px) scale(0.6);
   }
   15% {
     opacity: 1;
-    transform: translateY(0) rotate(var(--rot, 0deg)) scale(1);
+    transform: translateY(0) scale(1);
   }
   70% {
     opacity: 1;
-    transform: translateY(-32px) rotate(var(--rot, 0deg)) scale(1);
+    transform: translateY(-32px) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translateY(-96px) rotate(var(--rot, 0deg)) scale(0.9);
+    transform: translateY(-96px) scale(0.9);
   }
 }
 </style>

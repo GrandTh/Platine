@@ -14,6 +14,15 @@ import { COLOR_PALETTE, userColor, shortId } from '~/composables/useUserColor'
 
 const HEARTBEAT_MS = 20_000
 const PRESENT_WINDOW_MS = 60_000
+
+// Avatars animaux (code-points Twemoji) attribués par rang d'arrivée, comme
+// les couleurs → chaque membre a un animal unique et identique pour tous.
+const ANIMALS = [
+  '1f436', '1f431', '1f98a', '1f43c', '1f981', '1f42f', '1f428', '1f438',
+  '1f435', '1f989', '1f427', '1f984', '1f419', '1f99d', '1f43a', '1f994',
+  '1f430', '1f43b', '1f42e', '1f437', '1f985', '1f98b', '1f422', '1f988',
+  '1f42c', '1f433', '1f414', '1f439', '1f42d', '1f9a5'
+]
 // Pseudo mémorisé entre les rooms / sessions (par navigateur).
 const NAME_KEY = 'platine:name'
 
@@ -33,6 +42,8 @@ export interface Member {
   uid: string
   name: string
   color: string
+  /** Code-point Twemoji de l'avatar animal */
+  emoji: string
   isSelf: boolean
 }
 
@@ -57,8 +68,10 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
       a.created_at.localeCompare(b.created_at) || a.uid.localeCompare(b.uid)
     )
     const colorByUid = new Map<string, string>()
+    const emojiByUid = new Map<string, string>()
     ranked.forEach((m, i) => {
       colorByUid.set(m.uid, i < COLOR_PALETTE.length ? COLOR_PALETTE[i]! : userColor(m.uid))
+      emojiByUid.set(m.uid, ANIMALS[i % ANIMALS.length]!)
     })
 
     return present
@@ -66,6 +79,7 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
         uid: m.uid,
         name: m.name?.trim() || shortId(m.uid),
         color: colorByUid.get(m.uid)!,
+        emoji: emojiByUid.get(m.uid)!,
         isSelf: m.uid === uid
       }))
       .sort((a, b) => (a.isSelf ? -1 : b.isSelf ? 1 : a.name.localeCompare(b.name)))

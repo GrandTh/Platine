@@ -40,6 +40,10 @@ export interface FloatingEmote {
   rot: number
   /** Position horizontale (%) */
   left: number
+  /** Pseudo de l'expéditeur (affiché sous l'emote) */
+  name?: string
+  /** Couleur de l'expéditeur (pour le label) */
+  color?: string
 }
 
 // Durée de vie d'une emote à l'écran (≈ durée de l'animation CSS).
@@ -52,21 +56,22 @@ export function useEmotes(roomId: string) {
   let seq = 0
 
   /** Fait apparaître une emote à l'écran (fade-in par le bas + rotation). */
-  function spawn(code: string) {
+  function spawn(code: string, name?: string, color?: string) {
     // Sécurité : on n'affiche que les emotes connues.
     if (!EMOTES.some(e => e.code === code)) return
     const id = ++seq
     const rot = Math.round(Math.random() * 40 - 20) // -20°..+20°
     const left = 6 + Math.random() * 46 // 6%..52% (évite le panneau de droite)
-    active.value = [...active.value, { id, code, rot, left }]
+    active.value = [...active.value, { id, code, rot, left, name, color }]
     setTimeout(() => {
       active.value = active.value.filter(e => e.id !== id)
     }, LIFETIME)
   }
 
-  /** Envoie une emote à toute la room (et à soi-même via self:true). */
-  function send(code: string) {
-    channel?.send({ type: 'broadcast', event: 'emote', payload: { code } })
+  /** Envoie une emote à toute la room (et à soi-même via self:true).
+   *  `name`/`color` = identité de l'expéditeur, affichée sous l'emote. */
+  function send(code: string, name?: string, color?: string) {
+    channel?.send({ type: 'broadcast', event: 'emote', payload: { code, name, color } })
   }
 
   onMounted(() => {
@@ -74,9 +79,9 @@ export function useEmotes(roomId: string) {
       config: { broadcast: { self: true } }
     })
     channel
-      .on('broadcast', { event: 'emote' }, (msg: { payload?: { code?: string } }) => {
+      .on('broadcast', { event: 'emote' }, (msg: { payload?: { code?: string, name?: string, color?: string } }) => {
         const code = msg.payload?.code
-        if (typeof code === 'string') spawn(code)
+        if (typeof code === 'string') spawn(code, msg.payload?.name, msg.payload?.color)
       })
       .subscribe()
   })
