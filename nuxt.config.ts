@@ -5,7 +5,11 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@tresjs/nuxt',
     '@nuxtjs/supabase',
-    '@nuxtjs/i18n'
+    '@nuxtjs/i18n',
+    // Vercel Web Analytics + Speed Insights (actifs en prod sur Vercel ;
+    // no-op en local). À activer aussi dans le dashboard Vercel.
+    '@vercel/analytics/nuxt',
+    '@vercel/speed-insights/nuxt'
   ],
 
   devtools: {

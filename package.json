@@ -18,6 +18,8 @@
     "@nuxtjs/supabase": "^2.0.9",
     "@tresjs/core": "^5.8.1",
     "@tresjs/nuxt": "^5.6.1",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "motion-v": "^2.2.1",
     "node-vibrant": "^4.0.4",
     "nuxt": "^4.4.6",
