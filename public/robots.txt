@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /room/
+Disallow: /now-playing
+
+Sitemap: https://platine.live/sitemap.xml
