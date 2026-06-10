@@ -66,6 +66,7 @@
     "alreadyQueued": "Already in the queue",
     "importError": "Import failed",
     "queueFull": "Queue full (200 max)",
+    "voteHint": "Upvote",
     "emptyTitle": "The playlist is empty.",
     "emptySubtitle": "Add a track to start the party.",
     "nowPlaying": "Now playing",

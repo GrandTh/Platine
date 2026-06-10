@@ -66,6 +66,7 @@
     "alreadyQueued": "Déjà dans la file",
     "importError": "Import impossible",
     "queueFull": "File pleine (200 max)",
+    "voteHint": "Upvote",
     "emptyTitle": "La playlist est vide.",
     "emptySubtitle": "Ajoutez un son pour lancer la fête.",
     "nowPlaying": "En lecture",

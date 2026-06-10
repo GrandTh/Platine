@@ -881,7 +881,7 @@ async function copyLink() {
           <!-- Aperçu d'une playlist curée → lien retour vers les recommandations -->
           <button
             v-if="activePlaylistId"
-            class="mt-2 flex items-center gap-1 text-xs text-white/50 transition hover:text-white"
+            class="mt-2 flex items-center gap-1 text-xs cursor-pointer text-white/50 transition hover:text-white"
             @click="clear"
           >
             <UIcon
@@ -935,7 +935,7 @@ async function copyLink() {
               :key="r.videoId"
             >
               <button
-                class="group flex w-full items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
+                class="group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
                 @click="pick(r)"
               >
                 <img
@@ -951,11 +951,18 @@ async function copyLink() {
                   <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
                 </span>
                 <!-- Déjà dans la file → on propose un vote, pas un doublon -->
-                <UIcon
+                <span
                   v-if="isQueued('youtube', r.videoId)"
-                  name="i-lucide-arrow-big-up"
-                  class="size-5 shrink-0 text-fuchsia-400"
-                />
+                  class="group/vote relative shrink-0"
+                >
+                  <UIcon
+                    name="i-lucide-arrow-big-up"
+                    class="size-5 cursor-pointer text-fuchsia-400"
+                  />
+                  <span class="pointer-events-none absolute right-full top-1/2 z-10 mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-black/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 backdrop-blur-xl transition group-hover/vote:opacity-100">
+                    {{ t('panel.voteHint') }}
+                  </span>
+                </span>
                 <UIcon
                   v-else
                   name="i-lucide-plus"
@@ -993,7 +1000,7 @@ async function copyLink() {
                 <button
                   v-for="p in recommended"
                   :key="p.id"
-                  class="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                  class="cursor-pointer rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
                   @click="loadPlaylist(p.id)"
                 >
                   {{ p.label }}
@@ -1012,7 +1019,7 @@ async function copyLink() {
                   :key="r.videoId"
                 >
                   <button
-                    class="group flex w-full items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
+                    class="group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
                     @click="pick(r)"
                   >
                     <img
@@ -1027,11 +1034,18 @@ async function copyLink() {
                       />
                       <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
                     </span>
-                    <UIcon
+                    <span
                       v-if="isQueued('youtube', r.videoId)"
-                      name="i-lucide-arrow-big-up"
-                      class="size-5 shrink-0 text-fuchsia-400"
-                    />
+                      class="group/vote relative shrink-0"
+                    >
+                      <UIcon
+                        name="i-lucide-arrow-big-up"
+                        class="size-5 cursor-pointer text-fuchsia-400"
+                      />
+                      <span class="pointer-events-none absolute right-full top-1/2 z-10 mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-black/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 backdrop-blur-xl transition group-hover/vote:opacity-100">
+                        {{ t('panel.voteHint') }}
+                      </span>
+                    </span>
                     <UIcon
                       v-else
                       name="i-lucide-plus"
