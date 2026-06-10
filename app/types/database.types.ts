@@ -160,6 +160,78 @@ export type Database = {
         }
         Relationships: []
       }
+      recommended_playlists: {
+        Row: {
+          playlist_id: string
+          label: string
+          position: number
+          enabled: boolean
+          created_at: string
+        }
+        Insert: {
+          playlist_id: string
+          label: string
+          position?: number
+          enabled?: boolean
+          created_at?: string
+        }
+        Update: {
+          playlist_id?: string
+          label?: string
+          position?: number
+          enabled?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      playlist_cache: {
+        Row: {
+          playlist_id: string
+          tracks: unknown
+          cached_at: string
+        }
+        Insert: {
+          playlist_id: string
+          tracks: unknown
+          cached_at?: string
+        }
+        Update: {
+          playlist_id?: string
+          tracks?: unknown
+          cached_at?: string
+        }
+        Relationships: []
+      }
+      popular_tracks: {
+        Row: {
+          source: 'youtube' | 'spotify'
+          external_id: string
+          title: string
+          artist: string
+          cover: string
+          add_count: number
+          last_added_at: string
+        }
+        Insert: {
+          source: 'youtube' | 'spotify'
+          external_id: string
+          title?: string
+          artist?: string
+          cover?: string
+          add_count?: number
+          last_added_at?: string
+        }
+        Update: {
+          source?: 'youtube' | 'spotify'
+          external_id?: string
+          title?: string
+          artist?: string
+          cover?: string
+          add_count?: number
+          last_added_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

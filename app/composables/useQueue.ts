@@ -6,6 +6,10 @@
  */
 import type { Ref } from 'vue'
 
+// Plafond DUR de morceaux par room. Au-delà, l'app rame (rendu + realtime +
+// shuffle qui re-trie tout). Empêche d'enchaîner plusieurs imports de playlist.
+const ROOM_CAP = 200
+
 // Rang pseudo-aléatoire déterministe (FNV-1a) à partir d'un id + seed partagé.
 // Même seed → même ordre pour tous les clients.
 function seededRank(id: string, seed: string): number {
@@ -109,8 +113,9 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
    *
    * @param withVote  true (défaut) : compte 1 vote pour l'ajouteur.
    *                  false : 0 vote (import playlist = fallback en bas de file).
+   * @returns 'voted' (doublon → vote), 'full' (room pleine) ou 'added'.
    */
-  async function addTrack(track: NewTrack, withVote = true): Promise<'added' | 'voted'> {
+  async function addTrack(track: NewTrack, withVote = true): Promise<'added' | 'voted' | 'full'> {
     const existing = rows.value.find(
       r => r.source === track.source && r.external_id === track.externalId
     )
@@ -120,6 +125,9 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
       }
       return 'voted'
     }
+
+    // Room pleine → on refuse l'ajout (voter pour un doublon reste possible).
+    if (rows.value.length >= ROOM_CAP) return 'full'
 
     const { data, error } = await supabase
       .from('tracks')
@@ -148,12 +156,16 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
    */
   async function addMany(list: NewTrack[]) {
     const existingKeys = new Set(rows.value.map(r => `${r.source}:${r.external_id}`))
+    // Place restante avant d'atteindre le plafond de la room.
+    const remaining = Math.max(0, ROOM_CAP - rows.value.length)
+    if (remaining === 0) return 0
     // created_at incrémental (base + index) : PRÉSERVE l'ordre de la playlist.
     // Sinon un insert batch donne le même now() à toutes les lignes → l'ordre
     // FIFO serait indéfini. Base = maintenant → l'import se place après la file.
     const base = Date.now()
     const toInsert = list
       .filter(t => !existingKeys.has(`${t.source}:${t.externalId}`))
+      .slice(0, remaining)
       .map((t, i) => ({
         room_id: roomId,
         title: t.title,

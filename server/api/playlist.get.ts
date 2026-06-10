@@ -5,13 +5,20 @@
  * morceaux en paginant (nextPageToken).
  *
  * Quota : playlistItems.list coûte 1 unité par page de 50 (vs 100 pour une
- * recherche) → quasi gratuit (200 titres = 4 unités). On plafonne à MAX_ITEMS
- * pour ne pas déverser une playlist géante dans la file.
+ * recherche) → quasi gratuit (100 titres = 2 unités). On plafonne à MAX_ITEMS
+ * pour ne pas déverser une playlist géante dans la file (la room est elle-même
+ * plafonnée à 200 morceaux, cf. useQueue → ROOM_CAP).
  * Seules les playlists publiques / non répertoriées sont accessibles.
+ *
+ * Cache (table playlist_cache) : le 1er fetch d'une playlist est mémorisé ;
+ * les visites suivantes sont resservies depuis la DB sans toucher au quota
+ * (TTL 24 h). Un cron pg_cron optionnel vide la table chaque nuit.
  */
+import { serverSupabaseClient } from '#supabase/server'
+import type { Database } from '~/types/database.types'
 
-// Plafond d'import (ajustable). 200 = jusqu'à 4 appels API.
-const MAX_ITEMS = 200
+// Plafond d'import par playlist (ajustable). 100 = jusqu'à 2 appels API.
+const MAX_ITEMS = 100
 
 interface YtPlaylistItem {
   snippet?: {
@@ -46,14 +53,32 @@ function decodeHtml(s: string): string {
     .replace(/&gt;/g, '>')
 }
 
+// Au-delà de ce délai, on refait une vraie récupération (puis on recache).
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
 export default defineEventHandler(async (event): Promise<PlaylistTrack[]> => {
   const { youtubeApiKey } = useRuntimeConfig(event)
   const id = (getQuery(event).id as string | undefined)?.trim()
 
+  if (!id) return []
+
+  const supabase = await serverSupabaseClient<Database>(event)
+
+  // 1) Cache : si la playlist a été récupérée il y a moins de 24 h, on la
+  // ressert depuis la DB → 0 unité de quota, pas d'appel YouTube.
+  const { data: cached } = await supabase
+    .from('playlist_cache')
+    .select('tracks, cached_at')
+    .eq('playlist_id', id)
+    .maybeSingle()
+  if (cached?.tracks && Date.now() - new Date(cached.cached_at).getTime() < CACHE_TTL_MS) {
+    return cached.tracks as PlaylistTrack[]
+  }
+
+  // 2) Sinon, on récupère depuis YouTube (clé requise ici seulement).
   if (!youtubeApiKey) {
     throw createError({ statusCode: 500, statusMessage: 'YOUTUBE_API_KEY manquante côté serveur' })
   }
-  if (!id) return []
 
   try {
     const out: PlaylistTrack[] = []
@@ -90,6 +115,14 @@ export default defineEventHandler(async (event): Promise<PlaylistTrack[]> => {
       pageToken = data.nextPageToken
     } while (pageToken && out.length < MAX_ITEMS)
 
+    // 3) Mise en cache (upsert) : réarme cached_at pour repartir sur 24 h.
+    if (out.length) {
+      await supabase.from('playlist_cache').upsert({
+        playlist_id: id,
+        tracks: out,
+        cached_at: new Date().toISOString()
+      })
+    }
     return out
   } catch {
     throw createError({ statusCode: 502, statusMessage: 'Import de playlist indisponible' })

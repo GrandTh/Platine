@@ -68,13 +68,13 @@ function joinRoom() {
 
       <div class="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
         <button
-          class="group rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition hover:scale-[1.03] hover:shadow-fuchsia-500/50"
+          class="group cursor-pointer rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition hover:scale-[1.03] hover:shadow-fuchsia-500/50"
           @click="openCreate"
         >
           {{ t('home.create') }}
         </button>
         <button
-          class="rounded-2xl border border-white/15 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-xl transition hover:bg-white/20"
+          class="cursor-pointer rounded-2xl border border-white/15 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-xl transition hover:bg-white/20"
           @click="showJoin = true"
         >
           {{ t('home.join') }}
@@ -116,7 +116,7 @@ function joinRoom() {
         <div class="mt-5 grid grid-cols-2 gap-3">
           <!-- Même pièce -->
           <button
-            class="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
+            class="group flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
             @click="createRoom('speaker')"
           >
             <span class="relative grid h-16 w-full place-items-center">
@@ -147,7 +147,7 @@ function joinRoom() {
 
           <!-- Chacun son ordi -->
           <button
-            class="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
+            class="group flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-fuchsia-400/60 hover:bg-white/10"
             @click="createRoom('each')"
           >
             <span class="relative grid h-16 w-full place-items-center">

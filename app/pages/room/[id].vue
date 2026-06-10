@@ -234,30 +234,54 @@ const canShuffle = computed(() =>
 )
 
 // Recherche YouTube (débouncée, via la route serveur)
-const { query: search, results, loading: searching, clear, playlistId, submit: submitSearch } = useYoutubeSearch()
+const {
+  query: search, results, loading: searching, clear, submit: submitSearch,
+  popular, loadPopular, loadPlaylist, activePlaylistId, importablePlaylistId,
+  recommended, loadRecommended
+} = useYoutubeSearch()
 
-function pick(result: { videoId: string, title: string, channel: string, thumbnail: string }) {
+// Recommandations (chips playlists + populaires) : chargées dès qu'on ouvre
+// l'onglet recherche (0 quota). La liste des chips vient de la DB.
+watch(() => panelTab.value, (tab) => {
+  if (tab === 'search') {
+    loadRecommended()
+    loadPopular()
+  }
+}, { immediate: true })
+
+// Nom de la playlist recommandée prévisualisée (affiché au-dessus de l'aperçu).
+const activePlaylistLabel = computed(() =>
+  recommended.value.find(p => p.id === activePlaylistId.value)?.label ?? ''
+)
+
+async function pick(result: { videoId: string, title: string, channel: string, thumbnail: string }) {
   // On NE vide PAS la recherche : permet d'ajouter plusieurs titres d'affilée
   // (ex. plusieurs morceaux du même artiste) sans retaper.
-  addTrack({
+  const res = await addTrack({
     title: result.title,
     artist: result.channel,
     cover: result.thumbnail,
     source: 'youtube',
     externalId: result.videoId
   })
+  if (res === 'full') {
+    importMsg.value = t('panel.queueFull')
+    setTimeout(() => (importMsg.value = ''), 2500)
+  }
 }
 
-// Import d'une playlist YouTube (jusqu'à 50 morceaux, 0 vote = fallback).
+// Import d'une playlist YouTube (jusqu'à 100 morceaux, 0 vote = fallback).
+// Cible : URL collée OU chip de playlist curée prévisualisée.
 const importing = ref(false)
 const importMsg = ref('')
 async function importPlaylist() {
-  if (!playlistId.value || importing.value) return
+  const id = importablePlaylistId.value
+  if (!id || importing.value) return
   importing.value = true
   importMsg.value = ''
   try {
     const list = await $fetch<{ videoId: string, title: string, channel: string, thumbnail: string }[]>(
-      '/api/playlist', { query: { id: playlistId.value } }
+      '/api/playlist', { query: { id } }
     )
     const added = await addMany(list.map(r => ({
       title: r.title,
@@ -851,11 +875,36 @@ async function copyLink() {
             </button>
           </div>
 
-          <!-- URL de playlist détectée → bouton d'import (max 50, 0 vote) -->
+          <!-- Aperçu d'une playlist curée → lien retour vers les recommandations -->
           <button
-            v-if="playlistId"
-            class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-black transition hover:opacity-90 disabled:opacity-60"
-            :style="{ backgroundColor: vibrantHex }"
+            v-if="activePlaylistId"
+            class="mt-2 flex items-center gap-1 text-xs text-white/50 transition hover:text-white"
+            @click="clear"
+          >
+            <UIcon
+              name="i-lucide-chevron-left"
+              class="size-4"
+            />
+            {{ t('panel.backToReco') }}
+          </button>
+
+          <!-- Nom de la playlist recommandée prévisualisée -->
+          <p
+            v-if="activePlaylistLabel"
+            class="mt-1 flex items-center gap-2 text-sm font-semibold text-white"
+          >
+            <UIcon
+              name="i-lucide-list-music"
+              class="size-4 shrink-0 text-white/60"
+            />
+            {{ activePlaylistLabel }}
+          </p>
+
+          <!-- URL de playlist OU chip curée → bouton d'import (max 100, 0 vote) -->
+          <button
+            v-if="importablePlaylistId"
+            class="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium text-white/90 transition hover:brightness-150 disabled:cursor-not-allowed disabled:opacity-60"
+            :style="{ borderColor: vibrantHex + '40', backgroundColor: vibrantHex + '14' }"
             :disabled="importing"
             @click="importPlaylist"
           >
@@ -913,9 +962,9 @@ async function copyLink() {
             </li>
           </ul>
 
-          <!-- Aide / état vide de la recherche -->
+          <!-- Recherche tapée mais sans résultat -->
           <div
-            v-else
+            v-else-if="search"
             class="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center"
           >
             <UIcon
@@ -923,8 +972,86 @@ async function copyLink() {
               class="size-8 text-white/25"
             />
             <p class="text-sm text-white/45">
-              {{ search ? t('panel.searchEmpty') : t('panel.searchHint') }}
+              {{ t('panel.searchEmpty') }}
             </p>
+          </div>
+
+          <!-- Aucune recherche → recommandations (playlists curées + populaires) -->
+          <div
+            v-else
+            class="mt-3 min-h-0 flex-1 space-y-4 overflow-y-auto"
+          >
+            <!-- Playlists curées -->
+            <section v-if="recommended.length">
+              <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+                {{ t('panel.recoPlaylists') }}
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="p in recommended"
+                  :key="p.id"
+                  class="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                  @click="loadPlaylist(p.id)"
+                >
+                  {{ p.label }}
+                </button>
+              </div>
+            </section>
+
+            <!-- Morceaux les plus ajoutés -->
+            <section v-if="popular.length">
+              <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+                {{ t('panel.recoPopular') }}
+              </p>
+              <ul class="space-y-1">
+                <li
+                  v-for="r in popular"
+                  :key="r.videoId"
+                >
+                  <button
+                    class="group flex w-full items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
+                    @click="pick(r)"
+                  >
+                    <img
+                      :src="r.thumbnail"
+                      alt=""
+                      class="h-11 w-11 shrink-0 rounded object-cover"
+                    >
+                    <span class="min-w-0 flex-1">
+                      <MarqueeText
+                        :text="r.title"
+                        class="text-sm font-medium"
+                      />
+                      <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
+                    </span>
+                    <UIcon
+                      v-if="isQueued('youtube', r.videoId)"
+                      name="i-lucide-arrow-big-up"
+                      class="size-5 shrink-0 text-fuchsia-400"
+                    />
+                    <UIcon
+                      v-else
+                      name="i-lucide-plus"
+                      class="size-5 shrink-0 text-white/40"
+                    />
+                  </button>
+                </li>
+              </ul>
+            </section>
+
+            <!-- Rien à recommander encore → aide simple -->
+            <div
+              v-if="!recommended.length && !popular.length"
+              class="flex flex-col items-center justify-center gap-2 py-10 text-center"
+            >
+              <UIcon
+                name="i-lucide-search"
+                class="size-8 text-white/25"
+              />
+              <p class="text-sm text-white/45">
+                {{ t('panel.searchHint') }}
+              </p>
+            </div>
           </div>
         </div>
 
