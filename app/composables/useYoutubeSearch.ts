@@ -90,13 +90,15 @@ export function useYoutubeSearch() {
     }
   }
 
-  /** Charge les recommandations « morceaux populaires » (0 unité de quota). */
+  /** (Re)charge les « morceaux populaires » (0 unité de quota). Appelée à
+   *  chaque ouverture de l'onglet → la liste reste à jour sans reload. On NE
+   *  vide PAS avant : la nouvelle liste remplace l'ancienne à l'arrivée (pas
+   *  de clignotement), et on garde l'ancienne si l'appel échoue. */
   async function loadPopular() {
-    if (popular.value.length) return // déjà chargées
     try {
       popular.value = await $fetch<SearchResult[]>('/api/popular')
     } catch {
-      popular.value = []
+      // garde la liste précédente en cas d'échec
     }
   }
 

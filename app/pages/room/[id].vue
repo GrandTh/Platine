@@ -240,14 +240,17 @@ const {
   recommended, loadRecommended
 } = useYoutubeSearch()
 
-// Recommandations (chips playlists + populaires) : chargées dès qu'on ouvre
-// l'onglet recherche (0 quota). La liste des chips vient de la DB.
+// Préchargement dès l'arrivée dans la room (0 quota) → pas d'effet "pop-in"
+// quand on ouvre l'onglet recherche pour la première fois.
+onMounted(() => {
+  loadRecommended()
+  loadPopular()
+})
+// À chaque (ré)ouverture de l'onglet recherche, on rafraîchit les populaires
+// → le classement reste à jour sans recharger la page.
 watch(() => panelTab.value, (tab) => {
-  if (tab === 'search') {
-    loadRecommended()
-    loadPopular()
-  }
-}, { immediate: true })
+  if (tab === 'search') loadPopular()
+})
 
 // Nom de la playlist recommandée prévisualisée (affiché au-dessus de l'aperçu).
 const activePlaylistLabel = computed(() =>
