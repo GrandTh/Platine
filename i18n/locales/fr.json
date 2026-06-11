@@ -45,6 +45,9 @@
     "backHome": "Retour à l'accueil",
     "joinListen": "Rejoindre l'écoute",
     "voteSkip": "Voter pour passer",
+    "proposeSkip": "Proposer un skip",
+    "skipNow": "Passer la musique",
+    "closeSkipMenu": "Fermer",
     "skipToastTitle": "{name} a voté pour passer le son",
     "skipVoteBtn": "Je vote",
     "skipVotedBtn": "Vote retiré"

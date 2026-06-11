@@ -221,6 +221,24 @@ function nextTrack() {
   advance()
 }
 
+// Menu de skip de l'hôte : le clic sur le bouton skip ouvre deux choix en
+// diagonale (proposer un vote à tous / passer directement). Un clic ailleurs
+// referme sans agir.
+const skipMenuOpen = ref(false)
+function hostProposeSkip() {
+  skipMenuOpen.value = false
+  // Lance le vote partagé (le toast + quorum existants prennent le relais).
+  if (!hasVotedSkip.value) toggleSkipVote()
+}
+function hostSkipNow() {
+  skipMenuOpen.value = false
+  nextTrack()
+}
+// Referme le menu quand le morceau change (skip exécuté par vote, fin de piste…).
+watch(currentTrackId, () => {
+  skipMenuOpen.value = false
+})
+
 // Vide la file à venir (hôte) : supprime tous les morceaux sauf celui en cours.
 function clearUpNext() {
   if (!isHost.value) return
@@ -260,9 +278,14 @@ function openPanelTab(tab: 'queue' | 'search' | 'members') {
 const railVisible = ref(false)
 let railTimer: ReturnType<typeof setTimeout> | null = null
 watch(panelCollapsed, (collapsed) => {
-  if (railTimer) { clearTimeout(railTimer); railTimer = null }
+  if (railTimer) {
+    clearTimeout(railTimer)
+    railTimer = null
+  }
   if (collapsed) {
-    railTimer = setTimeout(() => { railVisible.value = true }, 320)
+    railTimer = setTimeout(() => {
+      railVisible.value = true
+    }, 320)
   } else {
     railVisible.value = false
   }
@@ -696,16 +719,74 @@ async function copyLink() {
               class="size-6"
             />
           </button>
-          <button
-            class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
-            :aria-label="t('room.next')"
-            @click="nextTrack"
-          >
-            <UIcon
-              name="i-lucide-skip-forward"
-              class="size-5"
+          <!-- Skip hôte : le clic ouvre deux choix en diagonale (proposer un
+               vote / passer direct), avec un voile sombre qui estompe la
+               timeline derrière. Clic ailleurs = referme. -->
+          <div class="relative">
+            <!-- Clic hors menu → referme -->
+            <div
+              v-if="skipMenuOpen"
+              class="pointer-events-auto fixed inset-0 z-[1] cursor-default"
+              @click="skipMenuOpen = false"
             />
-          </button>
+            <!-- Dôme sombre : part du bas de l'écran et englobe les 3 boutons -->
+            <div
+              v-if="skipMenuOpen"
+              class="skip-scrim pointer-events-none absolute -bottom-12 left-1/2 z-[2] h-72 w-[32rem] -translate-x-1/2"
+            />
+            <!-- Choix : proposer un vote (diagonale haut gauche) -->
+            <div
+              v-if="skipMenuOpen"
+              class="group/skl skip-choice-in absolute -left-14 -top-12 z-[3]"
+            >
+              <button
+                class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+                :aria-label="t('room.proposeSkip')"
+                @click="hostProposeSkip"
+              >
+                <UIcon
+                  name="i-lucide-megaphone"
+                  class="size-5"
+                />
+              </button>
+              <span class="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 backdrop-blur-xl transition group-hover/skl:opacity-100">
+                {{ t('room.proposeSkip') }}
+              </span>
+            </div>
+            <!-- Choix : passer directement (diagonale haut droite) -->
+            <div
+              v-if="skipMenuOpen"
+              class="group/skr skip-choice-in absolute -right-14 -top-12 z-[3]"
+            >
+              <button
+                class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20"
+                :aria-label="t('room.skipNow')"
+                @click="hostSkipNow"
+              >
+                <UIcon
+                  name="i-lucide-skip-forward"
+                  class="size-5"
+                />
+              </button>
+              <span class="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 backdrop-blur-xl transition group-hover/skr:opacity-100">
+                {{ t('room.skipNow') }}
+              </span>
+            </div>
+            <!-- Bouton skip principal : ouvre le menu, devient un X (fermer)
+                 quand il est ouvert (évite le doublon avec le choix skip). -->
+            <button
+              class="relative z-[3] grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 text-white backdrop-blur-xl transition"
+              :class="skipMenuOpen ? 'bg-white/25' : 'bg-white/10 hover:bg-white/20'"
+              :aria-label="skipMenuOpen ? t('room.closeSkipMenu') : t('room.next')"
+              :aria-expanded="skipMenuOpen"
+              @click="skipMenuOpen = !skipMenuOpen"
+            >
+              <UIcon
+                :name="skipMenuOpen ? 'i-lucide-x' : 'i-lucide-skip-forward'"
+                class="size-5"
+              />
+            </button>
+          </div>
         </template>
 
         <!-- Invité : vote pour skip (toggle), pophover au survol -->
@@ -1325,6 +1406,42 @@ async function copyLink() {
     transform: translateX(110%);
   }
 }
+/* Dôme sombre du menu skip : demi-cercle qui monte du bas de l'écran et
+   englobe les 3 boutons (dégradé radial centré sur le bord inférieur,
+   bords doux). Déborde sous le bouton (-bottom) pour toucher le bas. */
+.skip-scrim {
+  background: radial-gradient(
+    ellipse 50% 100% at 50% 100%,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0.6) 55%,
+    rgba(0, 0, 0, 0) 78%
+  );
+  animation: skip-scrim-in 200ms ease-out;
+}
+@keyframes skip-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Apparition des choix du menu skip hôte (pop scale + fondu). */
+.skip-choice-in {
+  animation: skip-choice-in 160ms ease-out;
+}
+@keyframes skip-choice-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
 /* Fondu d'apparition du mini-rail (déclenché à son montage, une fois le
    panneau sorti — cf. railVisible décalé de ~300ms). */
 .panel-rail-in {

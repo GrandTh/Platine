@@ -45,6 +45,9 @@
     "backHome": "Back to home",
     "joinListen": "Join the session",
     "voteSkip": "Vote to skip",
+    "proposeSkip": "Start a skip vote",
+    "skipNow": "Skip the track",
+    "closeSkipMenu": "Close",
     "skipToastTitle": "{name} voted to skip",
     "skipVoteBtn": "I vote",
     "skipVotedBtn": "Vote removed"
