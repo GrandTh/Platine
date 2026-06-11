@@ -67,6 +67,8 @@
     "importError": "Import impossible",
     "queueFull": "File pleine (200 max)",
     "voteHint": "Upvote",
+    "collapse": "Réduire le panneau",
+    "expand": "Afficher le panneau",
     "emptyTitle": "La playlist est vide.",
     "emptySubtitle": "Ajoutez un son pour lancer la fête.",
     "nowPlaying": "En lecture",

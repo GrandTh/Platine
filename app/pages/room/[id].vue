@@ -240,9 +240,39 @@ const {
   recommended, loadRecommended
 } = useYoutubeSearch()
 
+// Repli de la sidebar (desktop ≥ lg uniquement), mémorisé par navigateur.
+const PANEL_KEY = 'platine:panelCollapsed'
+const panelCollapsed = ref(false)
+function togglePanel() {
+  panelCollapsed.value = !panelCollapsed.value
+  if (import.meta.client) localStorage.setItem(PANEL_KEY, panelCollapsed.value ? '1' : '0')
+}
+// Depuis le mini-rail replié : rouvre le panneau directement sur un onglet.
+function openPanelTab(tab: 'queue' | 'search' | 'members') {
+  panelTab.value = tab
+  panelCollapsed.value = false
+  if (import.meta.client) localStorage.setItem(PANEL_KEY, '0')
+}
+
+// Le mini-rail n'apparaît qu'UNE FOIS le panneau sorti (≈ durée du slide, 300ms)
+// pour éviter qu'il se superpose à l'animation. À la ré-ouverture, il part tout
+// de suite (le panneau revient par-dessus).
+const railVisible = ref(false)
+let railTimer: ReturnType<typeof setTimeout> | null = null
+watch(panelCollapsed, (collapsed) => {
+  if (railTimer) { clearTimeout(railTimer); railTimer = null }
+  if (collapsed) {
+    railTimer = setTimeout(() => { railVisible.value = true }, 320)
+  } else {
+    railVisible.value = false
+  }
+})
+
 // Préchargement dès l'arrivée dans la room (0 quota) → pas d'effet "pop-in"
 // quand on ouvre l'onglet recherche pour la première fois.
 onMounted(() => {
+  if (import.meta.client) panelCollapsed.value = localStorage.getItem(PANEL_KEY) === '1'
+  railVisible.value = panelCollapsed.value // pas de slide au 1er rendu → affichage direct
   loadRecommended()
   loadPopular()
 })
@@ -743,11 +773,24 @@ async function copyLink() {
       ref="sheetRef"
       class="pointer-events-auto fixed inset-x-0 bottom-0 z-30 h-[85dvh] px-2 lg:pointer-events-none lg:absolute lg:inset-y-0 lg:right-0 lg:bottom-auto lg:left-auto lg:flex lg:h-full lg:w-96 lg:items-center lg:px-0 lg:pr-6 lg:!translate-y-0"
       :class="sheetDrag === null
-        ? ['transition-transform duration-300 ease-out', sheetOpen ? 'translate-y-0' : 'translate-y-[calc(100%-96px)]']
+        ? ['transition-transform duration-300 ease-out', sheetOpen ? 'translate-y-0' : 'translate-y-[calc(100%-96px)]', panelCollapsed ? 'panel-collapsed-lg' : '']
         : ''"
       :style="sheetDrag !== null ? { transform: `translateY(${sheetDrag}px)`, transition: 'none' } : undefined"
     >
-      <div class="pointer-events-auto flex h-full w-full flex-col rounded-t-3xl border border-white/15 border-b-0 bg-black/40 p-4 backdrop-blur-2xl lg:h-[80dvh] lg:rounded-3xl lg:border-b lg:bg-black/30 lg:p-5">
+      <div class="pointer-events-auto relative flex h-full w-full flex-col rounded-t-3xl border border-white/15 border-b-0 bg-black/40 p-4 backdrop-blur-2xl lg:h-[80dvh] lg:rounded-3xl lg:border-b lg:bg-black/30 lg:p-5">
+        <!-- Poignée de repli (desktop) : colle au bord gauche du panneau -->
+        <button
+          class="absolute left-0 top-1/2 z-10 hidden h-16 w-5 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-black/60 text-white/70 backdrop-blur-xl transition hover:bg-black/80 hover:text-white lg:flex"
+          :aria-label="t('panel.collapse')"
+          :title="t('panel.collapse')"
+          @click="togglePanel"
+        >
+          <UIcon
+            name="i-lucide-chevron-right"
+            class="size-4"
+          />
+        </button>
+
         <!-- Poignée de drag (mobile / tablette portrait uniquement) -->
         <div
           class="mb-3 flex shrink-0 cursor-grab touch-none justify-center lg:hidden"
@@ -1209,10 +1252,95 @@ async function copyLink() {
         </p>
       </div>
     </aside>
+
+    <!-- Mini-rail de ré-ouverture (desktop) : collé au bord droit quand replié.
+         Apparaît une fois le panneau sorti (railVisible, ≈300ms), avec un léger
+         fondu. Indicateurs cliquables → rouvrent le panneau sur l'onglet voulu. -->
+    <div
+      v-if="railVisible"
+      class="panel-rail-in fixed right-0 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-stretch gap-1 rounded-l-2xl border border-r-0 border-white/15 bg-black/50 p-1.5 backdrop-blur-xl lg:flex"
+    >
+      <!-- Rouvrir (onglet courant) -->
+      <button
+        class="grid size-9 cursor-pointer place-items-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
+        :aria-label="t('panel.expand')"
+        :title="t('panel.expand')"
+        @click="togglePanel"
+      >
+        <UIcon
+          name="i-lucide-chevron-left"
+          class="size-5"
+        />
+      </button>
+      <span class="mx-1 h-px bg-white/10" />
+      <!-- File : nombre de morceaux -->
+      <button
+        class="flex cursor-pointer flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-white/70 transition hover:bg-white/10 hover:text-white"
+        :aria-label="t('panel.playlist')"
+        :title="t('panel.playlist')"
+        @click="openPanelTab('queue')"
+      >
+        <UIcon
+          name="i-lucide-list-music"
+          class="size-5"
+        />
+        <span class="text-[10px] font-semibold tabular-nums">{{ tracks.length }}</span>
+      </button>
+      <!-- Membres : nombre de personnes -->
+      <button
+        class="flex cursor-pointer flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-white/70 transition hover:bg-white/10 hover:text-white"
+        :aria-label="t('panel.members')"
+        :title="t('panel.members')"
+        @click="openPanelTab('members')"
+      >
+        <UIcon
+          name="i-lucide-users"
+          class="size-5"
+        />
+        <span class="text-[10px] font-semibold tabular-nums">{{ members.length }}</span>
+      </button>
+      <!-- Recherche -->
+      <button
+        class="grid size-9 cursor-pointer place-items-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
+        :aria-label="t('panel.search')"
+        :title="t('panel.search')"
+        @click="openPanelTab('search')"
+      >
+        <UIcon
+          name="i-lucide-search"
+          class="size-5"
+        />
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* Repli de la sidebar (desktop ≥ lg). On utilise `transform` (et non les
+   utilitaires translate de Tailwind v4, qui passent par la propriété
+   `translate` et entrent en conflit avec lg:!translate-y-0). Animé par
+   `transition-transform` déjà présent sur l'aside. */
+@media (min-width: 1024px) {
+  .panel-collapsed-lg {
+    transform: translateX(110%);
+  }
+}
+/* Fondu d'apparition du mini-rail (déclenché à son montage, une fois le
+   panneau sorti — cf. railVisible décalé de ~300ms). */
+.panel-rail-in {
+  animation: panel-rail-in 200ms ease-out;
+}
+@keyframes panel-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* Morceau en cours : le dégradé "respire" doucement (va-et-vient + pulse)
    pour marquer qu'il est vivant, sans distraire. */
 .now-playing {
