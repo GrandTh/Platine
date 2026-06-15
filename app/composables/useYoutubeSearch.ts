@@ -7,7 +7,7 @@ import type { RecommendedPlaylist } from '~/utils/recommendedPlaylists'
  * intention explicite (1 recherche = 1 Entrée). Appelle /api/search (qui
  * met en cache côté serveur).
  */
-export function useYoutubeSearch() {
+export function useYoutubeSearch(uid?: string, roomId?: string) {
   const query = ref('')
   const results = ref<SearchResult[]>([])
   const loading = ref(false)
@@ -65,11 +65,18 @@ export function useYoutubeSearch() {
     loading.value = true
     error.value = null
     try {
-      const data = await $fetch<SearchResult[]>('/api/search', { query: { q: trimmed } })
+      // uid + roomId : exigés côté serveur (recherche réservée aux membres
+      // actifs d'une room, anti-abus).
+      const data = await $fetch<SearchResult[]>('/api/search', { query: { q: trimmed, uid, roomId } })
       if (mine === seq) results.value = data
-    } catch {
+    } catch (e) {
       if (mine === seq) {
-        error.value = 'Recherche indisponible'
+        // 429 = rate limit → message dédié, sinon erreur générique.
+        const status = (e as { statusCode?: number, status?: number })?.statusCode
+          ?? (e as { status?: number })?.status
+        error.value = status === 429
+          ? 'Trop de recherches, réessaie dans un instant'
+          : 'Recherche indisponible'
         results.value = []
       }
     } finally {

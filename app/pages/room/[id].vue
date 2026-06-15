@@ -256,7 +256,7 @@ const {
   query: search, results, loading: searching, clear, submit: submitSearch,
   popular, loadPopular, loadPlaylist, activePlaylistId, importablePlaylistId,
   recommended, loadRecommended
-} = useYoutubeSearch()
+} = useYoutubeSearch(uid, roomId.value)
 
 // Repli de la sidebar (desktop ≥ lg uniquement), mémorisé par navigateur.
 const PANEL_KEY = 'platine:panelCollapsed'

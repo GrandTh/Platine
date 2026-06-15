@@ -4,7 +4,7 @@
 --  À copier-coller en une fois dans le SQL Editor de Supabase
 --  pour initialiser un nouveau projet (ex. la base de DEV).
 --
---  Équivaut à : schema.sql + migrations 05, 06, 07, 08, 09, 10, 11, 12.
+--  Équivaut à : schema.sql + migrations 05, 06, 07, 08, 09, 10, 11, 12, 13.
 --  (Les migrations 01→04 sont déjà intégrées dans le schéma ci-dessous,
 --   donc inutile de les rejouer — la 01 échouerait sur une base neuve.)
 --
@@ -233,3 +233,36 @@ insert into public.recommended_playlists (playlist_id, label, position) values
   ('RDCLAK5uy_n64_P7t3MmbTu7jziSk48DL',           'Techno',         4),
   ('RDCLAK5uy_lBGRuQnsG37Akr1CY4SxL0VWFbPrbO4gs', 'Rap',            5)
 on conflict (playlist_id) do nothing;
+
+
+-- ============================================================
+--  9) RATE LIMIT — anti-abus recherche (migration 13)
+-- ============================================================
+
+create table if not exists public.rate_limit (
+  bucket     text primary key,
+  count      integer not null default 0,
+  expires_at timestamptz not null
+);
+
+create index if not exists rate_limit_expires_idx on public.rate_limit (expires_at);
+
+create or replace function public.rl_hit(p_bucket text, p_ttl_seconds integer, p_limit integer)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c integer;
+begin
+  delete from public.rate_limit where expires_at < now();
+  insert into public.rate_limit (bucket, count, expires_at)
+  values (p_bucket, 1, now() + make_interval(secs => p_ttl_seconds))
+  on conflict (bucket) do update set count = public.rate_limit.count + 1
+  returning count into c;
+  return c <= p_limit;
+end;
+$$;
+
+alter table public.rate_limit enable row level security;

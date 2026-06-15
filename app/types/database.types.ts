@@ -234,7 +234,12 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      rl_hit: {
+        Args: { p_bucket: string, p_ttl_seconds: number, p_limit: number }
+        Returns: boolean
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
