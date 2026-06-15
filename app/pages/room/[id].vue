@@ -337,7 +337,7 @@ async function importPlaylist() {
   importMsg.value = ''
   try {
     const list = await $fetch<{ videoId: string, title: string, channel: string, thumbnail: string }[]>(
-      '/api/playlist', { query: { id } }
+      '/api/playlist', { query: { id, uid, roomId: roomId.value } }
     )
     const added = await addMany(list.map(r => ({
       title: r.title,

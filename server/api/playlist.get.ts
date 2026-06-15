@@ -58,11 +58,17 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 export default defineEventHandler(async (event): Promise<PlaylistTrack[]> => {
   const { youtubeApiKey } = useRuntimeConfig(event)
-  const id = (getQuery(event).id as string | undefined)?.trim()
+  const q = getQuery(event)
+  const id = (q.id as string | undefined)?.trim()
+  const uid = (q.uid as string | undefined)?.trim()
+  const roomId = (q.roomId as string | undefined)?.trim()
 
   if (!id) return []
 
   const supabase = await serverSupabaseClient<Database>(event)
+
+  // Anti-abus (rate limit IP + membre actif), avant cache et appel YouTube.
+  await guardYoutubeRequest(event, supabase, 'playlist', uid, roomId)
 
   // 1) Cache : si la playlist a été récupérée il y a moins de 24 h, on la
   // ressert depuis la DB → 0 unité de quota, pas d'appel YouTube.

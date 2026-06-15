@@ -1,6 +1,12 @@
 import type { SearchResult } from '~~/server/api/search.get'
 import type { RecommendedPlaylist } from '~/utils/recommendedPlaylists'
 
+// Code HTTP d'une erreur $fetch (FetchError) — pour distinguer le 429.
+function errStatus(e: unknown): number | undefined {
+  return (e as { statusCode?: number, status?: number })?.statusCode
+    ?? (e as { status?: number })?.status
+}
+
 /**
  * Recherche YouTube côté client, déclenchée À LA VALIDATION (Entrée), pas en
  * live : search.list coûte 100 unités de quota → on ne cherche que sur une
@@ -48,11 +54,13 @@ export function useYoutubeSearch(uid?: string, roomId?: string) {
       loading.value = true
       error.value = null
       try {
-        const data = await $fetch<SearchResult[]>('/api/video', { query: { id: videoId.value } })
+        const data = await $fetch<SearchResult[]>('/api/video', { query: { id: videoId.value, uid, roomId } })
         if (mine === seq) results.value = data
-      } catch {
+      } catch (e) {
         if (mine === seq) {
-          error.value = 'Vidéo indisponible'
+          error.value = errStatus(e) === 429
+            ? 'Trop de requêtes, réessaie dans un instant'
+            : 'Vidéo indisponible'
           results.value = []
         }
       } finally {
@@ -72,9 +80,7 @@ export function useYoutubeSearch(uid?: string, roomId?: string) {
     } catch (e) {
       if (mine === seq) {
         // 429 = rate limit → message dédié, sinon erreur générique.
-        const status = (e as { statusCode?: number, status?: number })?.statusCode
-          ?? (e as { status?: number })?.status
-        error.value = status === 429
+        error.value = errStatus(e) === 429
           ? 'Trop de recherches, réessaie dans un instant'
           : 'Recherche indisponible'
         results.value = []
@@ -117,12 +123,14 @@ export function useYoutubeSearch(uid?: string, roomId?: string) {
     error.value = null
     activePlaylistId.value = id
     try {
-      const data = await $fetch<SearchResult[]>('/api/playlist', { query: { id } })
+      const data = await $fetch<SearchResult[]>('/api/playlist', { query: { id, uid, roomId } })
       // /api/playlist renvoie { videoId, title, channel, thumbnail } → même forme.
       if (mine === seq) results.value = data
-    } catch {
+    } catch (e) {
       if (mine === seq) {
-        error.value = 'Playlist indisponible'
+        error.value = errStatus(e) === 429
+          ? 'Trop de requêtes, réessaie dans un instant'
+          : 'Playlist indisponible'
         results.value = []
         activePlaylistId.value = null
       }

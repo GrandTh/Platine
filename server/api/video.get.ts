@@ -4,7 +4,12 @@
  * Le front appelle /api/video?id=VIDEO_ID quand l'utilisateur colle un lien
  * de vidéo. Quota : videos.list coûte 1 unité (vs 100 pour search.list) →
  * bien plus économe que de chercher l'URL en texte.
+ *
+ * Protégé par le même garde-fou que la recherche (rate limit IP + membre
+ * actif d'une room) : 1 unité, mais un bot pourrait quand même marteler.
  */
+import { serverSupabaseClient } from '#supabase/server'
+import type { Database } from '~/types/database.types'
 import type { SearchResult } from '~~/server/api/search.get'
 
 interface YtVideoItem {
@@ -34,12 +39,18 @@ function decodeHtml(s: string): string {
 
 export default defineEventHandler(async (event): Promise<SearchResult[]> => {
   const { youtubeApiKey } = useRuntimeConfig(event)
-  const id = (getQuery(event).id as string | undefined)?.trim()
+  const q = getQuery(event)
+  const id = (q.id as string | undefined)?.trim()
+  const uid = (q.uid as string | undefined)?.trim()
+  const roomId = (q.roomId as string | undefined)?.trim()
 
   if (!youtubeApiKey) {
     throw createError({ statusCode: 500, statusMessage: 'YOUTUBE_API_KEY manquante côté serveur' })
   }
   if (!id) return []
+
+  const supabase = await serverSupabaseClient<Database>(event)
+  await guardYoutubeRequest(event, supabase, 'video', uid, roomId)
 
   try {
     const data = await $fetch<YtVideoResponse>('https://www.googleapis.com/youtube/v3/videos', {

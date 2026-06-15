@@ -45,10 +45,6 @@ function decodeHtml(s: string): string {
     .replace(/&gt;/g, '>')
 }
 
-// Fenêtre de présence : un membre est "actif" si vu il y a moins de 90 s
-// (heartbeat = 20 s côté client, on garde de la marge).
-const MEMBER_WINDOW_MS = 90_000
-
 export default defineEventHandler(async (event): Promise<SearchResult[]> => {
   const { youtubeApiKey } = useRuntimeConfig(event)
   const q = getQuery(event)
@@ -64,41 +60,8 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
 
   const supabase = await serverSupabaseClient<Database>(event)
 
-  // --- Anti-abus (avant tout appel YouTube) ---
-
-  // 1) Rate limit par IP : un humain n'atteint jamais ces seuils, un bot oui.
-  // Fenêtre courte (anti-rafale) + fenêtre large (anti-spam soutenu).
-  // En cas d'erreur RPC (ex. migration pas encore jouée), on laisse passer
-  // (fail-open) pour ne pas casser la recherche.
-  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
-  for (const [tag, ttl, limit] of [['s10', 10, 8], ['s5m', 300, 40]] as const) {
-    const { data: allowed } = await supabase.rpc('rl_hit', {
-      p_bucket: `search:${tag}:${ip}`,
-      p_ttl_seconds: ttl,
-      p_limit: limit
-    })
-    if (allowed === false) {
-      throw createError({ statusCode: 429, statusMessage: 'Trop de recherches, réessaie dans un instant' })
-    }
-  }
-
-  // 2) Recherche réservée aux membres actifs d'une room : oblige à être dans
-  // une vraie room (uid + room présents en base), pas juste à taper l'URL.
-  if (!uid || !roomId) {
-    throw createError({ statusCode: 403, statusMessage: 'Rejoins une room pour rechercher' })
-  }
-  const { data: member, error: memberErr } = await supabase
-    .from('members')
-    .select('uid')
-    .eq('room_id', roomId)
-    .eq('uid', uid)
-    .gt('last_seen', new Date(Date.now() - MEMBER_WINDOW_MS).toISOString())
-    .maybeSingle()
-  // memberErr = souci DB → fail-open (le rate limit protège déjà) ; sinon, pas
-  // de ligne = pas un membre actif → refus.
-  if (!memberErr && !member) {
-    throw createError({ statusCode: 403, statusMessage: 'Rejoins une room pour rechercher' })
-  }
+  // Anti-abus (avant tout appel YouTube) : rate limit IP + membre actif.
+  await guardYoutubeRequest(event, supabase, 'search', uid, roomId)
 
   // Clé de cache normalisée (insensible à la casse / aux espaces).
   const cacheKey = raw.toLowerCase().replace(/\s+/g, ' ')
