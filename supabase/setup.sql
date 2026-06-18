@@ -4,7 +4,7 @@
 --  À copier-coller en une fois dans le SQL Editor de Supabase
 --  pour initialiser un nouveau projet (ex. la base de DEV).
 --
---  Équivaut à : schema.sql + migrations 05, 06, 07, 08, 09, 10, 11, 12, 13.
+--  Équivaut à : schema.sql + migrations 05, 06, 07, 08, 09, 10, 11, 12, 13, 14.
 --  (Les migrations 01→04 sont déjà intégrées dans le schéma ci-dessous,
 --   donc inutile de les rejouer — la 01 échouerait sur une base neuve.)
 --
@@ -77,7 +77,10 @@ alter table public.rooms  enable row level security;
 alter table public.tracks enable row level security;
 alter table public.votes  enable row level security;
 
-create policy "rooms: anon full access"  on public.rooms  for all using (true) with check (true);
+-- rooms : insert RETIRÉ en anon (création via /api/room/ensure, service role).
+create policy "rooms: anon read"   on public.rooms for select using (true);
+create policy "rooms: anon update" on public.rooms for update using (true) with check (true);
+create policy "rooms: anon delete" on public.rooms for delete using (true);
 create policy "tracks: anon full access" on public.tracks for all using (true) with check (true);
 create policy "votes: anon full access"  on public.votes  for all using (true) with check (true);
 

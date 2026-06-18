@@ -42,17 +42,19 @@ export function useRoomLifecycle(
       .eq('id', roomId)
   }
 
-  /** Crée la room seulement si elle n'existe pas (insert, jamais upsert). */
+  /** Crée la room si absente — via la route serveur (l'insert anon direct est
+   *  bloqué par la RLS). La route est idempotente et rate-limitée par IP.
+   *  En cas d'échec (ex. 429 anti-spam), on n'insère pas : loadRoom verra que
+   *  la room n'existe pas et l'UI affichera l'état "room introuvable". */
   async function createIfAbsent() {
-    await supabase.from('rooms').insert({
-      id: roomId,
-      host_id: uid,
-      mode,
-      playing: true,
-      last_active: new Date().toISOString()
-    })
-    // insert en doublon → erreur ignorée : la room existait déjà, on ne
-    // touche surtout pas à host_id.
+    try {
+      await $fetch('/api/room/ensure', {
+        method: 'POST',
+        body: { roomId, uid, mode }
+      })
+    } catch {
+      // silencieux : exists=false sera géré par loadRoom.
+    }
   }
 
   async function loadRoom() {
