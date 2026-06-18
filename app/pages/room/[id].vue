@@ -310,19 +310,30 @@ const activePlaylistLabel = computed(() =>
   recommended.value.find(p => p.id === activePlaylistId.value)?.label ?? ''
 )
 
+// videoIds en cours d'ajout → spinner sur la ligne + anti double-clic (l'ajout
+// fait un aller-retour serveur, donc il y a un court délai avant que le morceau
+// apparaisse dans la file).
+const addingIds = ref(new Set<string>())
+
 async function pick(result: { videoId: string, title: string, channel: string, thumbnail: string }) {
+  if (addingIds.value.has(result.videoId)) return // déjà en cours
   // On NE vide PAS la recherche : permet d'ajouter plusieurs titres d'affilée
   // (ex. plusieurs morceaux du même artiste) sans retaper.
-  const res = await addTrack({
-    title: result.title,
-    artist: result.channel,
-    cover: result.thumbnail,
-    source: 'youtube',
-    externalId: result.videoId
-  })
-  if (res === 'full') {
-    importMsg.value = t('panel.queueFull')
-    setTimeout(() => (importMsg.value = ''), 2500)
+  addingIds.value.add(result.videoId)
+  try {
+    const res = await addTrack({
+      title: result.title,
+      artist: result.channel,
+      cover: result.thumbnail,
+      source: 'youtube',
+      externalId: result.videoId
+    })
+    if (res === 'full') {
+      importMsg.value = t('panel.queueFull')
+      setTimeout(() => (importMsg.value = ''), 2500)
+    }
+  } finally {
+    addingIds.value.delete(result.videoId)
   }
 }
 
@@ -1059,7 +1070,8 @@ async function copyLink() {
               :key="r.videoId"
             >
               <button
-                class="group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
+                class="group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10 disabled:cursor-default disabled:opacity-60"
+                :disabled="addingIds.has(r.videoId)"
                 @click="pick(r)"
               >
                 <img
@@ -1074,9 +1086,15 @@ async function copyLink() {
                   />
                   <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
                 </span>
+                <!-- En cours d'ajout → spinner (anti double-clic) -->
+                <UIcon
+                  v-if="addingIds.has(r.videoId)"
+                  name="i-lucide-loader-circle"
+                  class="size-5 shrink-0 animate-spin text-white/60"
+                />
                 <!-- Déjà dans la file → on propose un vote, pas un doublon -->
                 <span
-                  v-if="isQueued('youtube', r.videoId)"
+                  v-else-if="isQueued('youtube', r.videoId)"
                   class="group/vote relative shrink-0"
                 >
                   <UIcon
@@ -1143,7 +1161,8 @@ async function copyLink() {
                   :key="r.videoId"
                 >
                   <button
-                    class="group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10"
+                    class="group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition hover:bg-white/10 disabled:cursor-default disabled:opacity-60"
+                    :disabled="addingIds.has(r.videoId)"
                     @click="pick(r)"
                   >
                     <img
@@ -1158,8 +1177,13 @@ async function copyLink() {
                       />
                       <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
                     </span>
+                    <UIcon
+                      v-if="addingIds.has(r.videoId)"
+                      name="i-lucide-loader-circle"
+                      class="size-5 shrink-0 animate-spin text-white/60"
+                    />
                     <span
-                      v-if="isQueued('youtube', r.videoId)"
+                      v-else-if="isQueued('youtube', r.videoId)"
                       class="group/vote relative shrink-0"
                     >
                       <UIcon

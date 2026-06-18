@@ -89,23 +89,22 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
     rows.value = (data ?? []) as DbMember[]
   }
 
+  // Écritures membres via les routes serveur (insert/update/delete anon bloqués
+  // par la RLS). Best-effort : on n'interrompt pas l'UX si un appel échoue.
   async function heartbeat() {
-    await supabase
-      .from('members')
-      .update({ last_seen: new Date().toISOString() })
-      .eq('room_id', roomId)
-      .eq('uid', uid)
+    try {
+      await $fetch('/api/member', { method: 'POST', body: { action: 'heartbeat', roomId, uid } })
+    } catch { /* présence best-effort */ }
   }
 
   async function join() {
     // Réapplique le pseudo mémorisé (localStorage) à l'arrivée dans la room.
-    const saved = readSavedName()
-    await supabase.from('members').upsert({
-      room_id: roomId,
-      uid,
-      last_seen: new Date().toISOString(),
-      ...(saved ? { name: saved } : {})
-    })
+    try {
+      await $fetch('/api/member', {
+        method: 'POST',
+        body: { action: 'join', roomId, uid, name: readSavedName() ?? undefined }
+      })
+    } catch { /* best-effort */ }
   }
 
   async function rename(name: string) {
@@ -115,32 +114,24 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
       if (clean) localStorage.setItem(NAME_KEY, clean)
       else localStorage.removeItem(NAME_KEY)
     }
-    await supabase
-      .from('members')
-      .update({ name: clean || null })
-      .eq('room_id', roomId)
-      .eq('uid', uid)
+    try {
+      await $fetch('/api/member', { method: 'POST', body: { action: 'rename', roomId, uid, name: clean } })
+    } catch { /* best-effort */ }
   }
 
   // Retrait de soi-même (départ propre, navigation interne).
   function leave() {
-    return supabase.from('members').delete().eq('room_id', roomId).eq('uid', uid)
+    return $fetch('/api/member/leave', { method: 'POST', body: { roomId, uid } }).catch(() => {})
   }
 
-  // Retrait à la fermeture de l'onglet/navigateur. Une requête fetch normale
-  // est tuée avant de partir → on utilise keepalive:true, qui survit à
-  // l'unload (comme sendBeacon mais avec headers pour l'API REST Supabase).
+  // Retrait à la fermeture de l'onglet/navigateur. keepalive:true survit à
+  // l'unload (comme sendBeacon) ; on cible notre route serveur.
   function leaveOnUnload() {
-    const cfg = useRuntimeConfig().public.supabase as { url: string, key: string }
-    if (!cfg?.url || !cfg?.key) return
-    const endpoint = `${cfg.url}/rest/v1/members?room_id=eq.${encodeURIComponent(roomId)}&uid=eq.${encodeURIComponent(uid)}`
-    fetch(endpoint, {
-      method: 'DELETE',
+    fetch('/api/member/leave', {
+      method: 'POST',
       keepalive: true,
-      headers: {
-        apikey: cfg.key,
-        authorization: `Bearer ${cfg.key}`
-      }
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ roomId, uid })
     }).catch(() => {})
   }
 

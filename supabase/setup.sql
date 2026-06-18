@@ -4,7 +4,7 @@
 --  À copier-coller en une fois dans le SQL Editor de Supabase
 --  pour initialiser un nouveau projet (ex. la base de DEV).
 --
---  Équivaut à : schema.sql + migrations 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15.
+--  Équivaut à : schema.sql + migrations 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16.
 --  (Les migrations 01→04 sont déjà intégrées dans le schéma ci-dessous,
 --   donc inutile de les rejouer — la 01 échouerait sur une base neuve.)
 --
@@ -83,7 +83,8 @@ create policy "rooms: anon update" on public.rooms for update using (true) with 
 create policy "rooms: anon delete" on public.rooms for delete using (true);
 -- tracks : lecture seule en anon (écriture via /api/track/*, service role).
 create policy "tracks: anon read" on public.tracks for select using (true);
-create policy "votes: anon full access"  on public.votes  for all using (true) with check (true);
+-- votes : lecture seule en anon (toggle via /api/vote, service role).
+create policy "votes: anon read"  on public.votes  for select using (true);
 
 
 -- ============================================================
@@ -119,7 +120,8 @@ create index if not exists members_room_idx on public.members (room_id);
 alter publication supabase_realtime add table public.members;
 
 alter table public.members enable row level security;
-create policy "members: anon full access" on public.members for all using (true) with check (true);
+-- members : lecture seule en anon (écriture via /api/member*, service role).
+create policy "members: anon read" on public.members for select using (true);
 
 
 -- ============================================================
@@ -148,7 +150,8 @@ alter publication supabase_realtime add table public.skip_votes;
 alter table public.skip_votes replica identity full;
 
 alter table public.skip_votes enable row level security;
-create policy "skip_votes: anon full access" on public.skip_votes for all using (true) with check (true);
+-- skip_votes : lecture seule en anon (toggle via /api/skip-vote, service role).
+create policy "skip_votes: anon read" on public.skip_votes for select using (true);
 
 
 -- ============================================================

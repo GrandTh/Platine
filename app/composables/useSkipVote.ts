@@ -61,18 +61,21 @@ export function useSkipVote(
     rows.value = (data ?? []) as DbSkipVote[]
   }
 
-  /** Ajoute ou retire son vote skip (toggle). */
+  /** Ajoute ou retire son vote skip (toggle). Persisté via la route serveur
+   *  (insert/delete anon bloqués par la RLS). Optimiste côté client. */
   async function toggleSkipVote() {
     const trackId = currentTrackId.value
     if (!trackId) return
     if (hasVotedSkip.value) {
-      // optimiste
       rows.value = rows.value.filter(r => !(r.track_id === trackId && r.voter_id === uid))
-      await supabase.from('skip_votes').delete().eq('track_id', trackId).eq('voter_id', uid)
     } else {
       rows.value = [...rows.value, { track_id: trackId, voter_id: uid }]
       lastVoterUid.value = uid
-      await supabase.from('skip_votes').insert({ room_id: roomId, track_id: trackId, voter_id: uid })
+    }
+    try {
+      await $fetch('/api/skip-vote', { method: 'POST', body: { roomId, uid, trackId } })
+    } catch {
+      await fetchAll() // refus/échec → resync
     }
   }
 

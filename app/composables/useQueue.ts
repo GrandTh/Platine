@@ -148,17 +148,16 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
 
   async function toggleVote(trackId: string) {
     const current = votesByTrack.value[trackId] ?? []
-    if (current.includes(uid)) {
-      // Optimiste : retire le vote localement (le DELETE realtime filtré
-      // peut ne pas revenir si REPLICA IDENTITY FULL n'est pas actif).
-      votesByTrack.value = {
-        ...votesByTrack.value,
-        [trackId]: current.filter(v => v !== uid)
-      }
-      await supabase.from('votes').delete().eq('track_id', trackId).eq('voter_id', uid)
-    } else {
-      votesByTrack.value = { ...votesByTrack.value, [trackId]: [...current, uid] }
-      await supabase.from('votes').insert({ track_id: trackId, voter_id: uid })
+    // Optimiste (le DELETE realtime filtré n'arrive pas toujours selon la
+    // config REPLICA IDENTITY). Toggle persisté via la route serveur.
+    votesByTrack.value = {
+      ...votesByTrack.value,
+      [trackId]: current.includes(uid) ? current.filter(v => v !== uid) : [...current, uid]
+    }
+    try {
+      await $fetch('/api/vote', { method: 'POST', body: { roomId, uid, trackId } })
+    } catch {
+      await fetchAll() // refus/échec → resync
     }
   }
 
