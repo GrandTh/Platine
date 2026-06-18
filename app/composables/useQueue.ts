@@ -6,10 +6,6 @@
  */
 import type { Ref } from 'vue'
 
-// Plafond DUR de morceaux par room. Au-delà, l'app rame (rendu + realtime +
-// shuffle qui re-trie tout). Empêche d'enchaîner plusieurs imports de playlist.
-const ROOM_CAP = 200
-
 // Rang pseudo-aléatoire déterministe (FNV-1a) à partir d'un id + seed partagé.
 // Même seed → même ordre pour tous les clients.
 function seededRank(id: string, seed: string): number {
@@ -116,70 +112,33 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
    * @returns 'voted' (doublon → vote), 'full' (room pleine) ou 'added'.
    */
   async function addTrack(track: NewTrack, withVote = true): Promise<'added' | 'voted' | 'full'> {
-    const existing = rows.value.find(
-      r => r.source === track.source && r.external_id === track.externalId
-    )
-    if (existing) {
-      if (withVote && !(votesByTrack.value[existing.id] ?? []).includes(uid)) {
-        await supabase.from('votes').insert({ track_id: existing.id, voter_id: uid })
-      }
-      return 'voted'
-    }
-
-    // Room pleine → on refuse l'ajout (voter pour un doublon reste possible).
-    if (rows.value.length >= ROOM_CAP) return 'full'
-
-    const { data, error } = await supabase
-      .from('tracks')
-      .insert({
-        room_id: roomId,
-        title: track.title,
-        artist: track.artist ?? '',
-        cover: track.cover ?? '',
-        source: track.source,
-        external_id: track.externalId,
-        added_by: uid
+    // Écriture via la route serveur (insert anon bloqué par la RLS). Le serveur
+    // gère doublon → vote, plafond 200 → 'full', sinon insert + vote.
+    try {
+      const { status } = await $fetch<{ status: 'added' | 'voted' | 'full' }>('/api/track/add', {
+        method: 'POST',
+        body: { roomId, uid, track, withVote }
       })
-      .select()
-      .single()
-
-    if (error || !data) return 'added'
-    if (withVote) {
-      await supabase.from('votes').insert({ track_id: (data as DbTrack).id, voter_id: uid })
+      return status
+    } catch {
+      return 'added' // best-effort : l'UI ne bloque pas, le Realtime fera foi
     }
-    return 'added'
   }
 
   /**
-   * Import groupé (playlist) : ajoute plusieurs morceaux SANS vote (fallback),
-   * en ignorant les doublons. Un seul fetchAll à la fin via le Realtime.
+   * Import groupé (playlist) : déléguée à la route serveur (sans vote, dédup,
+   * plafond + ordre préservés côté serveur). Renvoie le nombre ajouté.
    */
   async function addMany(list: NewTrack[]) {
-    const existingKeys = new Set(rows.value.map(r => `${r.source}:${r.external_id}`))
-    // Place restante avant d'atteindre le plafond de la room.
-    const remaining = Math.max(0, ROOM_CAP - rows.value.length)
-    if (remaining === 0) return 0
-    // created_at incrémental (base + index) : PRÉSERVE l'ordre de la playlist.
-    // Sinon un insert batch donne le même now() à toutes les lignes → l'ordre
-    // FIFO serait indéfini. Base = maintenant → l'import se place après la file.
-    const base = Date.now()
-    const toInsert = list
-      .filter(t => !existingKeys.has(`${t.source}:${t.externalId}`))
-      .slice(0, remaining)
-      .map((t, i) => ({
-        room_id: roomId,
-        title: t.title,
-        artist: t.artist ?? '',
-        cover: t.cover ?? '',
-        source: t.source,
-        external_id: t.externalId,
-        added_by: uid,
-        created_at: new Date(base + i).toISOString()
-      }))
-    if (toInsert.length) {
-      await supabase.from('tracks').insert(toInsert) // aucun vote → 0 par défaut
+    try {
+      const { added } = await $fetch<{ added: number }>('/api/track/import', {
+        method: 'POST',
+        body: { roomId, uid, tracks: list }
+      })
+      return added
+    } catch {
+      return 0
     }
-    return toInsert.length
   }
 
   /** Le morceau (source + external_id) est-il déjà dans la file ? */
@@ -207,20 +166,28 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
     // Optimiste : on retire de la liste tout de suite (le DELETE realtime
     // filtré n'arrive pas toujours selon la config REPLICA IDENTITY).
     rows.value = rows.value.filter(r => r.id !== trackId)
-    await supabase.from('tracks').delete().eq('id', trackId)
+    // Suppression via la route serveur (delete anon bloqué par la RLS ;
+    // autorisation auteur/hôte vérifiée côté serveur).
+    try {
+      await $fetch('/api/track/remove', { method: 'POST', body: { roomId, uid, trackId } })
+    } catch {
+      await fetchAll() // refus/échec → on resynchronise
+    }
   }
 
   /**
    * Vide la file À VENIR : supprime tous les morceaux de la room sauf celui en
-   * cours (keepId). Le morceau en lecture continue. Réservé à l'hôte (côté UI).
-   * Les votes/skip_votes des morceaux retirés partent en cascade (DB).
+   * cours (keepId). Le morceau en lecture continue. Réservé à l'hôte (vérifié
+   * côté serveur). Les votes/skip_votes des morceaux retirés partent en cascade.
    */
   async function clearQueue(keepId: string | null) {
     // Optimiste : on ne garde que le morceau en cours.
     rows.value = rows.value.filter(r => r.id === keepId)
-    let query = supabase.from('tracks').delete().eq('room_id', roomId)
-    if (keepId) query = query.neq('id', keepId)
-    await query
+    try {
+      await $fetch('/api/track/clear', { method: 'POST', body: { roomId, uid, keepId } })
+    } catch {
+      await fetchAll()
+    }
   }
 
   // --- Chargement initial ---

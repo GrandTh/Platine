@@ -1,14 +1,10 @@
 /**
- * Garde-fou anti-abus commun aux endpoints qui consomment le quota YouTube
- * (search / video / playlist).
+ * Briques anti-abus partagées par les endpoints serveur :
+ *  - rateLimitByIp : compteur par IP (fenêtres configurables) via rl_hit.
+ *  - requireActiveMember : exige un uid membre ACTIF d'une room.
  *
- *  1) Rate limit par IP (fenêtre courte anti-rafale + fenêtre large anti-spam),
- *     via la fonction Postgres atomique rl_hit (fiable sur le serverless Vercel).
- *  2) Requête réservée aux membres ACTIFS d'une room (uid + room présents en
- *     base, last_seen récent) → taper l'URL "à sec" est refusé.
- *
- * Fail-open : si la DB/la fonction ne répond pas (ex. migration 13 pas encore
- * jouée), on laisse passer plutôt que de casser la fonctionnalité.
+ * Fail-open sur erreur DB (ex. migration pas encore jouée) → on ne casse pas
+ * la fonctionnalité ; le reste des protections continue de s'appliquer.
  */
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -17,22 +13,17 @@ import type { Database } from '~/types/database.types'
 // Un membre est "actif" si vu il y a moins de 90 s (heartbeat client = 20 s).
 const MEMBER_WINDOW_MS = 90_000
 
-// Seuils de rate limit, par action et par IP.
-const WINDOWS = [
-  { tag: '10s', ttl: 10, limit: 8 },
-  { tag: '5m', ttl: 300, limit: 40 }
-] as const
+export interface RateWindow { tag: string, ttl: number, limit: number }
 
-export async function guardYoutubeRequest(
+/** Rate limit par IP, sur une ou plusieurs fenêtres. Lève 429 si dépassé. */
+export async function rateLimitByIp(
   event: H3Event,
   supabase: SupabaseClient<Database>,
-  action: 'search' | 'video' | 'playlist',
-  uid?: string,
-  roomId?: string
+  action: string,
+  windows: RateWindow[]
 ): Promise<void> {
-  // 1) Rate limit par IP (bucket distinct par action).
   const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
-  for (const w of WINDOWS) {
+  for (const w of windows) {
     const { data: allowed } = await supabase.rpc('rl_hit', {
       p_bucket: `${action}:${w.tag}:${ip}`,
       p_ttl_seconds: w.ttl,
@@ -42,8 +33,14 @@ export async function guardYoutubeRequest(
       throw createError({ statusCode: 429, statusMessage: 'Trop de requêtes, réessaie dans un instant' })
     }
   }
+}
 
-  // 2) Membre actif d'une room.
+/** Exige que l'uid soit un membre actif de la room. Lève 403 sinon. */
+export async function requireActiveMember(
+  supabase: SupabaseClient<Database>,
+  uid?: string,
+  roomId?: string
+): Promise<void> {
   if (!uid || !roomId) {
     throw createError({ statusCode: 403, statusMessage: 'Rejoins une room' })
   }
@@ -54,9 +51,24 @@ export async function guardYoutubeRequest(
     .eq('uid', uid)
     .gt('last_seen', new Date(Date.now() - MEMBER_WINDOW_MS).toISOString())
     .maybeSingle()
-  // error = souci DB → fail-open (le rate limit protège déjà) ; sinon, pas de
-  // ligne = pas un membre actif → refus.
   if (!error && !member) {
     throw createError({ statusCode: 403, statusMessage: 'Rejoins une room' })
   }
+}
+
+// Endpoints YouTube (search / video / playlist) : rate limit + membre actif.
+const YT_WINDOWS: RateWindow[] = [
+  { tag: '10s', ttl: 10, limit: 8 },
+  { tag: '5m', ttl: 300, limit: 40 }
+]
+
+export async function guardYoutubeRequest(
+  event: H3Event,
+  supabase: SupabaseClient<Database>,
+  action: 'search' | 'video' | 'playlist',
+  uid?: string,
+  roomId?: string
+): Promise<void> {
+  await rateLimitByIp(event, supabase, action, YT_WINDOWS)
+  await requireActiveMember(supabase, uid, roomId)
 }
