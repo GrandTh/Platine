@@ -52,7 +52,8 @@
     "skipVoteBtn": "Je vote",
     "skipVotedBtn": "Vote retiré",
     "tvMode": "Mode TV",
-    "tvExit": "Quitter le mode TV"
+    "tvExit": "Quitter le mode TV",
+    "tvIdle": "En attente de musique…"
   },
   "panel": {
     "search": "Recherche",

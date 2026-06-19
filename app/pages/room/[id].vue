@@ -379,8 +379,21 @@ const lightVibrantHex = hex('lightVibrant')
 const darkMutedHex = hex('darkMuted')
 
 // Mode TV : affichage d'ambiance plein écran (overlay). Le 3D est coupé pendant
-// ce temps (économie GPU sur une TV laissée branchée) ; l'audio continue.
-const tvMode = ref(false)
+// ce temps → une TV (qui rame avec la 3D) reste fluide ; l'audio continue.
+// Entrée DIRECTE via ?tv dans l'URL : `tvMode` est vrai dès le 1er rendu (SSR
+// inclus) → la scène 3D n'est jamais montée. On mémorise aussi le dernier choix
+// par appareil : une fois qu'une TV est passée en mode TV, elle rouvre toujours
+// ainsi (sans avoir à viser le bouton à travers le lag).
+const TV_KEY = 'platine:tv'
+const tvMode = ref(route.query.tv !== undefined)
+onMounted(() => {
+  if (!tvMode.value && localStorage.getItem(TV_KEY) === '1') tvMode.value = true
+  // Persiste l'état initial (cas ?tv direct) ; les changements suivants via le watch.
+  localStorage.setItem(TV_KEY, tvMode.value ? '1' : '0')
+})
+watch(tvMode, (on) => {
+  if (import.meta.client) localStorage.setItem(TV_KEY, on ? '1' : '0')
+})
 
 const cameraRef = shallowRef<PerspectiveCamera | null>(null)
 watch(cameraRef, cam => cam?.lookAt(0, 0, 0))
@@ -1439,11 +1452,11 @@ async function copyLink() {
 
     <!-- ───────── Mode TV (overlay d'ambiance plein écran) ───────── -->
     <TvMode
-      v-if="tvMode && nowPlaying"
-      :track-id="nowPlaying.id"
+      v-if="tvMode"
+      :track-id="nowPlaying?.id ?? ''"
       :cover="coverSrc"
-      :title="nowPlaying.title"
-      :artist="nowPlaying.artist"
+      :title="nowPlaying?.title ?? ''"
+      :artist="nowPlaying?.artist ?? ''"
       :up-next="upNext"
       :playing="playing"
       :progress="progress"

@@ -130,21 +130,33 @@ function onTrackClick(e: MouseEvent) {
         </div>
 
         <div class="tv-text min-w-0 max-w-full text-center lg:max-w-md lg:text-left">
-          <p class="mb-2 text-xs font-medium tracking-[0.3em] text-white/45 uppercase">
-            {{ t('panel.nowPlaying') }}
-          </p>
-          <h2 class="line-clamp-2 text-2xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-            {{ title }}
+          <template v-if="title">
+            <p class="mb-2 text-xs font-medium tracking-[0.3em] text-white/45 uppercase">
+              {{ t('panel.nowPlaying') }}
+            </p>
+            <h2 class="line-clamp-2 text-2xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+              {{ title }}
+            </h2>
+            <p class="mt-2 truncate text-base text-white/55 sm:text-lg">
+              {{ artist || '—' }}
+            </p>
+          </template>
+          <!-- Room sans morceau (ex. arrivée directe via ?tv) -->
+          <h2
+            v-else
+            class="text-xl font-semibold text-white/50 sm:text-2xl"
+          >
+            {{ t('room.tvIdle') }}
           </h2>
-          <p class="mt-2 truncate text-base text-white/55 sm:text-lg">
-            {{ artist || '—' }}
-          </p>
         </div>
       </div>
     </Transition>
 
-    <!-- ───────── Timeline (conservée) ───────── -->
-    <div class="absolute inset-x-0 bottom-0 px-6 pb-6 sm:px-10 sm:pb-8">
+    <!-- ───────── Timeline (conservée ; masquée si rien ne joue) ───────── -->
+    <div
+      v-if="duration"
+      class="absolute inset-x-0 bottom-0 px-6 pb-6 sm:px-10 sm:pb-8"
+    >
       <div
         ref="trackRef"
         class="group relative -my-3 py-3"
