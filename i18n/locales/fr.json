@@ -50,7 +50,9 @@
     "closeSkipMenu": "Fermer",
     "skipToastTitle": "{name} a voté pour passer le son",
     "skipVoteBtn": "Je vote",
-    "skipVotedBtn": "Vote retiré"
+    "skipVotedBtn": "Vote retiré",
+    "tvMode": "Mode TV",
+    "tvExit": "Quitter le mode TV"
   },
   "panel": {
     "search": "Recherche",

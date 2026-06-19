@@ -50,7 +50,9 @@
     "closeSkipMenu": "Close",
     "skipToastTitle": "{name} voted to skip",
     "skipVoteBtn": "I vote",
-    "skipVotedBtn": "Vote removed"
+    "skipVotedBtn": "Vote removed",
+    "tvMode": "TV mode",
+    "tvExit": "Exit TV mode"
   },
   "panel": {
     "search": "Search",

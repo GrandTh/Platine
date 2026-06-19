@@ -378,6 +378,10 @@ const vibrantHex = hex('vibrant')
 const lightVibrantHex = hex('lightVibrant')
 const darkMutedHex = hex('darkMuted')
 
+// Mode TV : affichage d'ambiance plein écran (overlay). Le 3D est coupé pendant
+// ce temps (économie GPU sur une TV laissée branchée) ; l'audio continue.
+const tvMode = ref(false)
+
 const cameraRef = shallowRef<PerspectiveCamera | null>(null)
 watch(cameraRef, cam => cam?.lookAt(0, 0, 0))
 
@@ -443,8 +447,9 @@ async function copyLink() {
     v-else
     class="relative h-dvh w-full overflow-hidden bg-[#050506] text-white"
   >
-    <!-- Scène 3D plein écran -->
+    <!-- Scène 3D plein écran (coupée en mode TV pour économiser le GPU) -->
     <TresCanvas
+      v-if="!tvMode"
       :clear-color="darkMutedHex"
       render-mode="always"
       class="absolute inset-0"
@@ -714,6 +719,20 @@ async function copyLink() {
         >
           <UIcon
             name="i-lucide-expand"
+            class="size-5"
+          />
+        </button>
+
+        <!-- Mode TV (pour tout le monde) : affichage d'ambiance plein écran.
+             Bouton simple + focusable au D-pad (anneau de focus visible) pour
+             être atteignable à la télécommande d'une TV. -->
+        <button
+          class="grid size-11 cursor-pointer place-items-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          :aria-label="t('room.tvMode')"
+          @click="tvMode = true"
+        >
+          <UIcon
+            name="i-lucide-tv"
             class="size-5"
           />
         </button>
@@ -1417,6 +1436,25 @@ async function copyLink() {
         />
       </button>
     </div>
+
+    <!-- ───────── Mode TV (overlay d'ambiance plein écran) ───────── -->
+    <TvMode
+      v-if="tvMode && nowPlaying"
+      :track-id="nowPlaying.id"
+      :cover="coverSrc"
+      :title="nowPlaying.title"
+      :artist="nowPlaying.artist"
+      :up-next="upNext"
+      :playing="playing"
+      :progress="progress"
+      :current="current"
+      :duration="duration"
+      :is-host="isHost"
+      :accent="vibrantHex"
+      :bg="darkMutedHex"
+      @exit="tvMode = false"
+      @seek="onSeekRatio"
+    />
   </div>
 </template>
 
