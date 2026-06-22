@@ -35,10 +35,9 @@ export function useSkipVote(
   const skipCount = computed(() => skipVoters.value.length)
   const hasVotedSkip = computed(() => skipVoters.value.includes(uid))
 
-  // Quorum : 50% de TOUTE la room (hôte inclus dans le total), arrondi au
-  // sup., min 1. L'hôte compte dans le total mais ne vote pas (skip manuel).
-  // Ex. room de 3 (1 hôte + 2 invités) → ceil(3/2) = 2 votes requis.
-  const quorum = computed(() => Math.max(1, Math.ceil(members.value.length / 2)))
+  // Quorum : 50% de TOUTE la room (hôte inclus), arrondi au sup., min 1.
+  // L'hôte compte dans le total mais ne vote pas (il a son skip manuel).
+  const quorum = computed(() => skipQuorum(members.value.length))
 
   // Dernier votant (pour le texte du toast), résolu en nom via members.
   const lastVoterUid = ref<string | null>(null)

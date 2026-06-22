@@ -5,18 +5,7 @@
  * est inchangée par rapport au prototype BroadcastChannel : l'UI ne bouge pas.
  */
 import type { Ref } from 'vue'
-
-// Rang pseudo-aléatoire déterministe (FNV-1a) à partir d'un id + seed partagé.
-// Même seed → même ordre pour tous les clients.
-function seededRank(id: string, seed: string): number {
-  let h = 2166136261
-  const s = id + seed
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
+import { sortQueue } from '~/utils/queueSort'
 
 interface DbTrack {
   id: string
@@ -82,16 +71,7 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
   //  - morceaux à 0 vote + shuffle actif → ordre pseudo-aléatoire (seed partagé)
   //  - sinon → le plus ancien d'abord (FIFO).
   // Les morceaux votés gardent donc toujours la priorité sur les 0-vote.
-  const sorted = computed(() => {
-    const seed = shuffleSeed?.value
-    return [...tracks.value].sort((a, b) => {
-      if (b.voters.length !== a.voters.length) return b.voters.length - a.voters.length
-      if (seed && a.voters.length === 0) {
-        return seededRank(a.id, seed) - seededRank(b.id, seed)
-      }
-      return a.createdAt - b.createdAt
-    })
-  })
+  const sorted = computed(() => sortQueue(tracks.value, shuffleSeed?.value ?? null))
 
   /** Morceau en tête de file = en lecture. */
   const nowPlaying = computed<QueueTrack | null>(() => sorted.value[0] ?? null)
