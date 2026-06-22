@@ -55,6 +55,7 @@ export default defineEventHandler(async (event) => {
   const { error } = await supabase.from('rooms').insert({
     id: roomId,
     host_id: uid,
+    owner_id: uid, // créateur = hôte prioritaire (passation d'hôte)
     mode,
     playing: true,
     last_active: new Date().toISOString()

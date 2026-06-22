@@ -8,34 +8,40 @@ export type Database = {
         Row: {
           id: string
           host_id: string
+          owner_id: string | null
           source: 'youtube' | 'both'
           mode: 'speaker' | 'each'
           playing: boolean
           current_track_id: string | null
           shuffle_seed: string | null
           last_active: string
+          host_absent_since: string | null
           created_at: string
         }
         Insert: {
           id: string
           host_id: string
+          owner_id?: string | null
           source?: 'youtube' | 'both'
           mode?: 'speaker' | 'each'
           playing?: boolean
           current_track_id?: string | null
           shuffle_seed?: string | null
           last_active?: string
+          host_absent_since?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           host_id?: string
+          owner_id?: string | null
           source?: 'youtube' | 'both'
           mode?: 'speaker' | 'each'
           playing?: boolean
           current_track_id?: string | null
           shuffle_seed?: string | null
           last_active?: string
+          host_absent_since?: string | null
           created_at?: string
         }
         Relationships: []

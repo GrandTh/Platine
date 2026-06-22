@@ -33,6 +33,8 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
       last_seen: new Date().toISOString(),
       ...(name ? { name } : {})
     })
+    // Réconcilie l'hôte (retour du proprio = reprise immédiate). Best-effort.
+    await reconcileHost(supabase, roomId).catch(() => {})
     return { ok: true }
   }
   if (action === 'heartbeat') {
@@ -40,6 +42,8 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
     await supabase.from('members')
       .update({ last_seen: new Date().toISOString() })
       .eq('room_id', roomId).eq('uid', uid)
+    // Réconcilie l'hôte à chaque heartbeat (déclenche la passation au bon moment).
+    await reconcileHost(supabase, roomId).catch(() => {})
     return { ok: true }
   }
   if (action === 'rename') {

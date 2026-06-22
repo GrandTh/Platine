@@ -14,5 +14,8 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
   }
   const supabase = serverSupabaseServiceRole<Database>(event)
   await supabase.from('members').delete().eq('room_id', roomId).eq('uid', uid)
+  // Départ d'un membre → réconcilie l'hôte (démarre la grâce si le proprio part,
+  // ou enchaîne sur le suivant si un hôte de remplacement s'en va). Best-effort.
+  await reconcileHost(supabase, roomId).catch(() => {})
   return { ok: true }
 })

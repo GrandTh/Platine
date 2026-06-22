@@ -14,7 +14,8 @@
 -- n'est présent, elle devient « vide » et le cleanup la supprime.
 create table if not exists public.rooms (
   id          text primary key,                    -- le code (ex. "AB23CD")
-  host_id     text not null,                       -- id anonyme du créateur (permissions)
+  host_id     text not null,                       -- hôte ACTIF (permissions ; peut changer après absence)
+  owner_id    text,                                -- créateur (rôle d'hôte prioritaire à son retour)
   source      text not null default 'youtube'
                 check (source in ('youtube', 'both')),
   mode        text not null default 'each'
@@ -22,6 +23,7 @@ create table if not exists public.rooms (
   playing     boolean not null default true,
   current_track_id uuid,                             -- morceau en lecture (figé)
   last_active timestamptz not null default now(),
+  host_absent_since timestamptz,                     -- début d'absence du proprio (grâce passation)
   created_at  timestamptz not null default now()
 );
 

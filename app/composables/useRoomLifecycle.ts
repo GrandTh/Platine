@@ -134,10 +134,16 @@ export function useRoomLifecycle(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
         (payload) => {
-          const row = payload.new as { playing?: boolean, current_track_id?: string | null, shuffle_seed?: string | null }
+          const row = payload.new as { playing?: boolean, current_track_id?: string | null, shuffle_seed?: string | null, host_id?: string }
           if (typeof row.playing === 'boolean') playing.value = row.playing
           if ('current_track_id' in row) currentTrackId.value = row.current_track_id ?? null
           if ('shuffle_seed' in row) shuffleSeed.value = row.shuffle_seed ?? null
+          // Passation d'hôte : le rôle peut changer en direct (proprio absent →
+          // reprise par un invité, ou retour du proprio). On bascule l'UI.
+          if (typeof row.host_id === 'string') {
+            hostId.value = row.host_id
+            isHost.value = row.host_id === uid
+          }
         }
       )
       .on('broadcast', { event: 'seek' }, ({ payload }) => {
