@@ -15,7 +15,7 @@
   - **Même pièce** — seul l'hôte diffuse le son, les invités sont muets (idéal entre potes au même endroit).
   - **Chacun son ordi** — le son est synchronisé sur chaque appareil (à distance).
 - **Vote pour passer** — les invités votent pour skip ; à 50 % de la room, le morceau est passé automatiquement.
-- **Recherche YouTube** — par mots-clés, par lien vidéo, ou par import de playlist.
+- **Recherche YouTube** — par mots-clés, par lien vidéo, ou par import de playlist
 - **Vinyle 3D** — disque qui tourne, s'incline vers le curseur, et fait un salto au clic. Fond « liquid metal » teinté par la pochette du morceau.
 - **Lecteur intégré** — clip en coin, plein écran, timeline cliquable.
 - **Multilingue** — Français et Anglais.

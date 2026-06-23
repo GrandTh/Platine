@@ -25,3 +25,7 @@ logs
 
 # Vercel
 .vercel
+
+# Doc d'archi interne (local uniquement, non commitée)
+CLAUDE.md
+CLAUDE.local.md

@@ -216,27 +216,53 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
 
   let channel: ReturnType<typeof supabase.channel> | null = null
 
+  // Resync débouncé : plusieurs events rapprochés (rafale de votes, import de
+  // playlist…) ne déclenchent qu'UN seul fetchAll → bien moins de requêtes.
+  let syncTimer: ReturnType<typeof setTimeout> | null = null
+  function scheduleSync() {
+    if (syncTimer) return
+    syncTimer = setTimeout(() => {
+      syncTimer = null
+      fetchAll()
+    }, 250)
+  }
+
+  // Un événement `votes` ne concerne notre room que si son track_id est l'un de
+  // nos morceaux. La table `votes` n'a pas de room_id → l'abonnement est global ;
+  // on filtre ici pour ignorer les votes des AUTRES rooms (évite une tempête de
+  // refetch chez tous les clients à chaque vote ailleurs).
+  function voteConcernsRoom(payload: { new?: unknown, old?: unknown }): boolean {
+    const rec = (payload.new ?? payload.old) as { track_id?: string } | undefined
+    const trackId = rec?.track_id
+    // track_id inconnu (payload incomplet) → on resync par sécurité.
+    if (!trackId) return true
+    return rows.value.some(r => r.id === trackId)
+  }
+
   onMounted(async () => {
     await fetchAll()
 
     channel = supabase
       .channel(`room:${roomId}`)
-      // Morceaux de cette room
+      // Morceaux de cette room (déjà filtré par room côté serveur).
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tracks', filter: `room_id=eq.${roomId}` },
-        () => fetchAll()
+        () => scheduleSync()
       )
-      // Votes : pas filtrables par room côté serveur → on resynchronise.
+      // Votes : abonnement global (pas de room_id en DB) → on ignore ceux des
+      // autres rooms, et on débounce le reste.
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'votes' },
-        () => fetchAll()
+        (payload) => { if (voteConcernsRoom(payload)) scheduleSync() }
       )
       .subscribe()
   })
 
   onBeforeUnmount(() => {
+    if (syncTimer) clearTimeout(syncTimer)
+    syncTimer = null
     if (channel) supabase.removeChannel(channel)
     channel = null
   })

@@ -33,6 +33,8 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
       last_seen: new Date().toISOString(),
       ...(name ? { name } : {})
     })
+    // Maintient la room en vie (remplace l'ancien heartbeat `rooms` côté client).
+    await supabase.from('rooms').update({ last_active: new Date().toISOString() }).eq('id', roomId)
     // Réconcilie l'hôte (retour du proprio = reprise immédiate). Best-effort.
     await reconcileHost(supabase, roomId).catch(() => {})
     return { ok: true }
@@ -42,6 +44,8 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
     await supabase.from('members')
       .update({ last_seen: new Date().toISOString() })
       .eq('room_id', roomId).eq('uid', uid)
+    // Maintient la room en vie côté serveur (plus d'écriture `rooms` en anon).
+    await supabase.from('rooms').update({ last_active: new Date().toISOString() }).eq('id', roomId)
     // Réconcilie l'hôte à chaque heartbeat (déclenche la passation au bon moment).
     await reconcileHost(supabase, roomId).catch(() => {})
     return { ok: true }

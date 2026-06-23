@@ -1,19 +1,19 @@
 /**
  * Cycle de vie d'une room.
  *
- * Règle : la room vit tant qu'AU MOINS une personne est présente.
- * Chaque participant (hôte ou invité) rafraîchit `last_active` via un
- * heartbeat régulier. Quand plus personne ne heartbeate, la room devient
- * « vide » et le cleanup serveur (cron) la supprime.
+ * Règle : la room vit tant qu'AU MOINS une personne est présente. Le heartbeat
+ * de présence est porté par useMembers (/api/member heartbeat), qui rafraîchit
+ * aussi `rooms.last_active` côté serveur → pas d'écriture `rooms` côté client.
+ * Quand plus personne ne heartbeate, la room devient « vide » et le cleanup
+ * serveur (cron) la supprime.
  *
- * Sécurité du rôle : le rôle d'hôte vient UNIQUEMENT de la DB (host_id).
- * On ne crée la room que si elle n'existe pas (insert, pas upsert) → personne
- * ne peut « voler » le rôle en rejoignant avec ?host=1 dans l'URL.
+ * Sécurité du rôle : le rôle d'hôte vient UNIQUEMENT de la DB (host_id), et
+ * TOUTES les écritures `rooms` passent par des endpoints service role
+ * (`/api/room/*`). La RLS interdit l'écriture anon sur `rooms` (migration 18)
+ * → impossible de voler le rôle ou de piloter la lecture par écriture directe.
  *
  * État `playing` : partagé en temps réel (pause/play se propage à tous).
  */
-
-const HEARTBEAT_MS = 20_000
 
 export type RoomMode = 'speaker' | 'each'
 
@@ -32,15 +32,7 @@ export function useRoomLifecycle(
   const playing = ref(true)
   const currentTrackId = ref<string | null>(null)
   const shuffleSeed = ref<string | null>(null)
-  let timer: ReturnType<typeof setInterval> | null = null
   let channel: ReturnType<typeof supabase.channel> | null = null
-
-  async function heartbeat() {
-    await supabase
-      .from('rooms')
-      .update({ last_active: new Date().toISOString() })
-      .eq('id', roomId)
-  }
 
   /** Crée la room si absente — via la route serveur (l'insert anon direct est
    *  bloqué par la RLS). La route est idempotente et rate-limitée par IP.
@@ -76,19 +68,26 @@ export function useRoomLifecycle(
     }
   }
 
+  // Écriture de l'état room via la route serveur (l'update anon est bloqué par
+  // la RLS ; l'autorisation hôte est revérifiée côté serveur). Optimiste côté
+  // client, le Realtime fait foi. Best-effort : on n'interrompt pas l'UX.
+  function pushState(patch: { playing?: boolean, currentTrackId?: string | null, shuffleSeed?: string }) {
+    return $fetch('/api/room/state', { method: 'POST', body: { roomId, uid, ...patch } }).catch(() => {})
+  }
+
   /** Bascule lecture/pause (hôte uniquement). Propagé via Realtime. */
   async function togglePlaying() {
     if (!isHost.value) return
     const next = !playing.value
     playing.value = next // optimiste
-    await supabase.from('rooms').update({ playing: next }).eq('id', roomId)
+    await pushState({ playing: next })
   }
 
   /** Définit le morceau en cours (hôte uniquement). Propagé via Realtime. */
   async function setCurrentTrack(trackId: string | null) {
     if (!isHost.value) return
     currentTrackId.value = trackId // optimiste
-    await supabase.from('rooms').update({ current_track_id: trackId }).eq('id', roomId)
+    await pushState({ currentTrackId: trackId })
   }
 
   /** Re-mélange les morceaux à 0 vote (hôte uniquement) : nouvelle graine,
@@ -97,22 +96,15 @@ export function useRoomLifecycle(
     if (!isHost.value) return
     const seed = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
     shuffleSeed.value = seed // optimiste
-    await supabase.from('rooms').update({ shuffle_seed: seed }).eq('id', roomId)
+    await pushState({ shuffleSeed: seed })
   }
 
   onMounted(async () => {
     if (wantHost) await createIfAbsent()
     await loadRoom()
-    if (exists.value) {
-      startHeartbeat()
-      subscribeRoom()
-    }
+    if (exists.value) subscribeRoom()
     ready.value = true
   })
-
-  function startHeartbeat() {
-    timer = setInterval(heartbeat, HEARTBEAT_MS)
-  }
 
   // Callback déclenché à la réception d'un seek de l'hôte (positionné par la page).
   let onSeekReceived: ((seconds: number) => void) | null = null
@@ -154,8 +146,6 @@ export function useRoomLifecycle(
   }
 
   onBeforeUnmount(() => {
-    if (timer) clearInterval(timer)
-    timer = null
     if (channel) supabase.removeChannel(channel)
     channel = null
   })

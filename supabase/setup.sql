@@ -79,10 +79,11 @@ alter table public.rooms  enable row level security;
 alter table public.tracks enable row level security;
 alter table public.votes  enable row level security;
 
--- rooms : insert RETIRÉ en anon (création via /api/room/ensure, service role).
-create policy "rooms: anon read"   on public.rooms for select using (true);
-create policy "rooms: anon update" on public.rooms for update using (true) with check (true);
-create policy "rooms: anon delete" on public.rooms for delete using (true);
+-- rooms : LECTURE SEULE en anon. Toute écriture passe par /api/room/* +
+-- /api/member (service role) : création, état de lecture (hôte only), heartbeat
+-- last_active, passation d'hôte. Le cron cleanup supprime hors RLS (owner).
+-- (migration 18 : update/delete anon retirés — anti vol de rôle / pilotage)
+create policy "rooms: anon read" on public.rooms for select using (true);
 -- tracks : lecture seule en anon (écriture via /api/track/*, service role).
 create policy "tracks: anon read" on public.tracks for select using (true);
 -- votes : lecture seule en anon (toggle via /api/vote, service role).
