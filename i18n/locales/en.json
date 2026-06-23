@@ -12,7 +12,18 @@
   "footer": {
     "privacy": "Privacy",
     "terms": "Terms",
-    "back": "Home"
+    "back": "Home",
+    "whatsNew": "What's new"
+  },
+  "whatsNew": {
+    "title": "What's new?",
+    "subtitle": "The latest Platine updates.",
+    "pageTitle": "What's new",
+    "dontShow": "Don't show again",
+    "gotIt": "Got it",
+    "featureLabel": "New",
+    "fixesLabel": "Improvements",
+    "fixesLine": "Bug fixes and performance improvements."
   },
   "createModal": {
     "title": "How are you listening?",

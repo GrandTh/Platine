@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { APP_VERSION } from '~/utils/changelog'
+
 const { t } = useI18n()
 
 // Génère un code de room court, lisible (sans caractères ambigus).
@@ -36,6 +38,24 @@ function joinRoom() {
     navigateTo(`/room/${code}`)
   }
 }
+
+// --- Modale « Nouveautés » ---
+// Affichée une fois par version non encore vue, sauf si désactivée par l'user.
+const WN_SEEN = 'platine:whatsnew:seen'
+const WN_OFF = 'platine:whatsnew:off'
+const showWhatsNew = ref(false)
+
+onMounted(() => {
+  const off = localStorage.getItem(WN_OFF) === '1'
+  const seen = localStorage.getItem(WN_SEEN)
+  if (!off && seen !== APP_VERSION) showWhatsNew.value = true
+})
+
+function closeWhatsNew(dontShowAgain: boolean) {
+  showWhatsNew.value = false
+  localStorage.setItem(WN_SEEN, APP_VERSION)
+  if (dontShowAgain) localStorage.setItem(WN_OFF, '1')
+}
 </script>
 
 <template>
@@ -54,11 +74,6 @@ function joinRoom() {
 
     <!-- Contenu -->
     <main class="relative z-10 flex w-full max-w-2xl flex-col items-center text-center">
-      <div class="mb-6 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-medium tracking-widest text-white/70 uppercase backdrop-blur-xl">
-        <span class="size-2 rounded-full bg-fuchsia-400 shadow-[0_0_10px] shadow-fuchsia-400" />
-        {{ t('home.badge') }}
-      </div>
-
       <h1 class="bg-gradient-to-br from-white via-fuchsia-200 to-cyan-200 bg-clip-text pl-[0.15em] font-[Gyanko] text-7xl tracking-[0.1em] text-transparent sm:text-8xl">
         Platine
       </h1>
@@ -82,8 +97,8 @@ function joinRoom() {
       </div>
     </main>
 
-    <!-- Liens légaux discrets en bas de page -->
-    <footer class="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-3 p-4 text-xs text-white/35">
+    <!-- Liens légaux + nouveautés + version, discrets en bas de page -->
+    <footer class="absolute inset-x-0 bottom-0 z-20 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 p-4 text-xs text-white/35">
       <NuxtLink
         to="/confidentialite"
         class="transition hover:text-white/70"
@@ -97,6 +112,15 @@ function joinRoom() {
       >
         {{ t('footer.terms') }}
       </NuxtLink>
+      <span class="text-white/20">·</span>
+      <NuxtLink
+        to="/nouveautes"
+        class="transition hover:text-white/70"
+      >
+        {{ t('footer.whatsNew') }}
+      </NuxtLink>
+      <span class="text-white/20">·</span>
+      <span class="text-white/30">v{{ APP_VERSION }}</span>
     </footer>
 
     <!-- ───────── Modal : Créer une room ───────── -->
@@ -212,6 +236,12 @@ function joinRoom() {
         </button>
       </div>
     </div>
+
+    <!-- ───────── Modale : Nouveautés (à l'arrivée si nouvelle version) ───────── -->
+    <WhatsNewModal
+      :open="showWhatsNew"
+      @close="closeWhatsNew"
+    />
   </div>
 </template>
 

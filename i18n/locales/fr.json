@@ -12,7 +12,18 @@
   "footer": {
     "privacy": "Confidentialité",
     "terms": "Conditions",
-    "back": "Accueil"
+    "back": "Accueil",
+    "whatsNew": "Nouveautés"
+  },
+  "whatsNew": {
+    "title": "Quoi de neuf ?",
+    "subtitle": "Les dernières mises à jour de Platine.",
+    "pageTitle": "Nouveautés",
+    "dontShow": "Ne plus afficher",
+    "gotIt": "Compris",
+    "featureLabel": "Nouveau",
+    "fixesLabel": "Améliorations",
+    "fixesLine": "Corrections de bugs et améliorations de performance."
   },
   "createModal": {
     "title": "Comment vous écoutez ?",
