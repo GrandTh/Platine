@@ -28,6 +28,7 @@ create table if not exists public.rooms (
   playing     boolean not null default true,
   current_track_id uuid,                             -- morceau en lecture (figé)
   shuffle_seed text,                                 -- graine de mélange des 0-vote
+  autoplay    boolean not null default false,        -- file vide → ré-enfile des populaires
   last_active timestamptz not null default now(),
   host_absent_since timestamptz,                     -- début d'absence du proprio (grâce passation)
   created_at  timestamptz not null default now()
@@ -44,6 +45,7 @@ create table if not exists public.tracks (
   external_id text not null,                        -- videoId YouTube / uri Spotify
   added_by    text not null,                        -- id anonyme
   played      boolean not null default false,
+  duration    integer,                              -- durée en secondes (videos.list, mise en cache)
   created_at  timestamptz not null default now()
 );
 
@@ -167,6 +169,7 @@ create table if not exists public.popular_tracks (
   title         text not null default '',
   artist        text not null default '',
   cover         text not null default '',
+  duration      integer,                              -- durée en secondes (recopiée depuis tracks)
   add_count     integer not null default 0,
   last_added_at timestamptz not null default now(),
   primary key (source, external_id)
@@ -182,14 +185,15 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.popular_tracks (source, external_id, title, artist, cover, add_count, last_added_at)
-  values (new.source, new.external_id, new.title, coalesce(new.artist, ''), coalesce(new.cover, ''), 1, now())
+  insert into public.popular_tracks (source, external_id, title, artist, cover, duration, add_count, last_added_at)
+  values (new.source, new.external_id, new.title, coalesce(new.artist, ''), coalesce(new.cover, ''), new.duration, 1, now())
   on conflict (source, external_id) do update
     set add_count     = public.popular_tracks.add_count + 1,
         last_added_at = now(),
-        title  = excluded.title,
-        artist = excluded.artist,
-        cover  = excluded.cover;
+        title    = excluded.title,
+        artist   = excluded.artist,
+        cover    = excluded.cover,
+        duration = coalesce(excluded.duration, public.popular_tracks.duration);
   return new;
 end;
 $$;

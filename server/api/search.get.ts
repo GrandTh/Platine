@@ -33,6 +33,8 @@ export interface SearchResult {
   title: string
   channel: string
   thumbnail: string
+  /** Durée en secondes (videos.list), si connue. */
+  duration?: number
 }
 
 // Décode les entités HTML que YouTube renvoie dans les titres (&amp; &#39; …)
@@ -96,12 +98,17 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
       .map(it => ({
         videoId: it.id.videoId,
         title: decodeHtml(it.snippet?.title ?? 'Sans titre'),
-        channel: decodeHtml(it.snippet?.channelTitle ?? ''),
+        channel: stripTopic(decodeHtml(it.snippet?.channelTitle ?? '')),
         thumbnail:
           it.snippet?.thumbnails?.medium?.url
           ?? it.snippet?.thumbnails?.default?.url
           ?? ''
       }))
+
+    // Durées en 1 appel (videos.list, ≤50 IDs = 1 unité) → mises en cache avec
+    // les résultats (immuables, jamais re-demandées).
+    const durations = await fetchDurations(youtubeApiKey, results.map(r => r.videoId))
+    for (const r of results) r.duration = durations[r.videoId]
 
     // Mise en cache (upsert) : rafraîchit aussi created_at pour réarmer le TTL
     // quand on recache une entrée expirée.

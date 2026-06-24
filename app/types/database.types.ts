@@ -14,6 +14,7 @@ export type Database = {
           playing: boolean
           current_track_id: string | null
           shuffle_seed: string | null
+          autoplay: boolean
           last_active: string
           host_absent_since: string | null
           created_at: string
@@ -27,6 +28,7 @@ export type Database = {
           playing?: boolean
           current_track_id?: string | null
           shuffle_seed?: string | null
+          autoplay?: boolean
           last_active?: string
           host_absent_since?: string | null
           created_at?: string
@@ -40,6 +42,7 @@ export type Database = {
           playing?: boolean
           current_track_id?: string | null
           shuffle_seed?: string | null
+          autoplay?: boolean
           last_active?: string
           host_absent_since?: string | null
           created_at?: string
@@ -57,6 +60,7 @@ export type Database = {
           external_id: string
           added_by: string
           played: boolean
+          duration: number | null
           created_at: string
         }
         Insert: {
@@ -69,6 +73,7 @@ export type Database = {
           external_id: string
           added_by: string
           played?: boolean
+          duration?: number | null
           created_at?: string
         }
         Update: {
@@ -81,6 +86,7 @@ export type Database = {
           external_id?: string
           added_by?: string
           played?: boolean
+          duration?: number | null
           created_at?: string
         }
         Relationships: []
@@ -215,6 +221,7 @@ export type Database = {
           title: string
           artist: string
           cover: string
+          duration: number | null
           add_count: number
           last_added_at: string
         }
@@ -224,6 +231,7 @@ export type Database = {
           title?: string
           artist?: string
           cover?: string
+          duration?: number | null
           add_count?: number
           last_added_at?: string
         }
@@ -233,6 +241,7 @@ export type Database = {
           title?: string
           artist?: string
           cover?: string
+          duration?: number | null
           add_count?: number
           last_added_at?: string
         }

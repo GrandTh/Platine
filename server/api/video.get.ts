@@ -22,6 +22,7 @@ interface YtVideoItem {
       default?: { url?: string }
     }
   }
+  contentDetails?: { duration?: string }
 }
 
 interface YtVideoResponse {
@@ -56,7 +57,7 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
     const data = await $fetch<YtVideoResponse>('https://www.googleapis.com/youtube/v3/videos', {
       query: {
         key: youtubeApiKey,
-        part: 'snippet',
+        part: 'snippet,contentDetails', // contentDetails = durée, gratuit (même appel)
         id
       }
     })
@@ -66,11 +67,12 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
       .map(it => ({
         videoId: it.id,
         title: decodeHtml(it.snippet?.title ?? 'Sans titre'),
-        channel: decodeHtml(it.snippet?.channelTitle ?? ''),
+        channel: stripTopic(decodeHtml(it.snippet?.channelTitle ?? '')),
         thumbnail:
           it.snippet?.thumbnails?.medium?.url
           ?? it.snippet?.thumbnails?.default?.url
-          ?? ''
+          ?? '',
+        duration: parseIsoDuration(it.contentDetails?.duration)
       }))
   } catch {
     throw createError({ statusCode: 502, statusMessage: 'Vidéo YouTube indisponible' })

@@ -11,6 +11,7 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
     "@iconify-json/lucide": "^1.2.108",
     "@iconify-json/simple-icons": "^1.2.83",
     "@nuxt/ui": "^4.7.1",
@@ -20,6 +21,7 @@
     "@tresjs/nuxt": "^5.6.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "emoji-mart": "^5.6.0",
     "motion-v": "^2.2.1",
     "node-vibrant": "^4.0.4",
     "nuxt": "^4.4.6",

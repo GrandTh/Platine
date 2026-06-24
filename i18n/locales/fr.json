@@ -64,7 +64,8 @@
     "skipVotedBtn": "Vote retiré",
     "tvMode": "Mode TV",
     "tvExit": "Quitter le mode TV",
-    "tvIdle": "En attente de musique…"
+    "tvIdle": "En attente de musique…",
+    "moreEmotes": "Plus d'emojis"
   },
   "panel": {
     "search": "Recherche",
@@ -95,6 +96,10 @@
     "you": "(vous)",
     "renameAria": "Changer mon nom",
     "isHost": "Vous êtes l'hôte de cette room.",
-    "isGuest": "Vous avez rejoint cette room."
+    "isGuest": "Vous avez rejoint cette room.",
+    "tracksCount": "titre",
+    "tracksCountPlural": "titres",
+    "autoplay": "Musique non-stop",
+    "autoplayHint": "Quand la file est vide, enchaîne des morceaux populaires"
   }
 }

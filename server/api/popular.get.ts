@@ -20,7 +20,7 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
 
   const { data } = await supabase
     .from('popular_tracks')
-    .select('external_id, title, artist, cover')
+    .select('external_id, title, artist, cover, duration')
     .eq('source', 'youtube')
     .order('add_count', { ascending: false })
     .limit(LIMIT)
@@ -28,7 +28,8 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
   return (data ?? []).map(r => ({
     videoId: r.external_id,
     title: r.title,
-    channel: r.artist,
-    thumbnail: r.cover
+    channel: stripTopic(r.artist),
+    thumbnail: r.cover,
+    duration: r.duration ?? undefined
   }))
 })

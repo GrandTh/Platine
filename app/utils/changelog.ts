@@ -35,6 +35,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.1.0',
+    date: '2026-06-24',
+    features: [
+      {
+        fr: 'Durée des morceaux affichée à côté de chaque titre, et temps total de la playlist en un coup d\'œil.',
+        en: 'Track durations shown next to each title, plus the playlist\'s total time at a glance.'
+      },
+      {
+        fr: 'Musique non-stop : quand la file se vide, Platine enchaîne automatiquement des morceaux populaires (activable par l\'hôte).',
+        en: 'Non-stop music: when the queue runs dry, Platine automatically keeps playing popular tracks (toggled by the host).'
+      },
+      {
+        fr: 'Tous les emojis disponibles pour vos réactions grâce à un nouveau sélecteur complet.',
+        en: 'Every emoji at your fingertips for reactions, thanks to a new full picker.'
+      }
+    ],
+    fixes: true
+  },
+  {
     version: '1.0.0',
     date: '2026-06-23',
     features: [

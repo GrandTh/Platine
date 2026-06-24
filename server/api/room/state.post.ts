@@ -49,6 +49,7 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
   if (typeof body.shuffleSeed === 'string' && body.shuffleSeed) {
     patch.shuffle_seed = body.shuffleSeed
   }
+  if (typeof body.autoplay === 'boolean') patch.autoplay = body.autoplay
 
   if (Object.keys(patch).length) {
     await supabase.from('rooms').update(patch).eq('id', roomId)

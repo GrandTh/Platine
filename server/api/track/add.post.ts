@@ -19,7 +19,7 @@ export default defineEventHandler(async (event): Promise<{ status: 'added' | 'vo
   const body = await readBody(event)
   const roomId = (body?.roomId as string | undefined)?.trim()
   const uid = (body?.uid as string | undefined)?.trim()
-  const t = body?.track as { title?: string, artist?: string, cover?: string, source?: string, externalId?: string } | undefined
+  const t = body?.track as { title?: string, artist?: string, cover?: string, source?: string, externalId?: string, duration?: number } | undefined
   const withVote = body?.withVote !== false
   const source = t?.source === 'spotify' ? 'spotify' : 'youtube'
   const externalId = t?.externalId?.trim()
@@ -64,7 +64,8 @@ export default defineEventHandler(async (event): Promise<{ status: 'added' | 'vo
       cover: t.cover ?? '',
       source,
       external_id: externalId,
-      added_by: uid
+      added_by: uid,
+      duration: typeof t.duration === 'number' ? Math.round(t.duration) : null
     })
     .select('id')
     .single()

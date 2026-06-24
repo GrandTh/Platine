@@ -42,6 +42,8 @@ export interface PlaylistTrack {
   title: string
   channel: string
   thumbnail: string
+  /** Durée en secondes (videos.list), si connue. */
+  duration?: number
 }
 
 function decodeHtml(s: string): string {
@@ -109,7 +111,7 @@ export default defineEventHandler(async (event): Promise<PlaylistTrack[]> => {
         out.push({
           videoId,
           title: decodeHtml(it.snippet?.title ?? 'Sans titre'),
-          channel: decodeHtml(it.snippet?.videoOwnerChannelTitle ?? ''),
+          channel: stripTopic(decodeHtml(it.snippet?.videoOwnerChannelTitle ?? '')),
           thumbnail:
             it.snippet?.thumbnails?.medium?.url
             ?? it.snippet?.thumbnails?.default?.url
@@ -120,6 +122,10 @@ export default defineEventHandler(async (event): Promise<PlaylistTrack[]> => {
 
       pageToken = data.nextPageToken
     } while (pageToken && out.length < MAX_ITEMS)
+
+    // Durées par lots de 50 (1 u/lot) → 100 titres = +2 u. Mises en cache.
+    const durations = await fetchDurations(youtubeApiKey, out.map(t => t.videoId))
+    for (const t of out) t.duration = durations[t.videoId]
 
     // 3) Mise en cache (upsert) : réarme cached_at pour repartir sur 24 h.
     if (out.length) {

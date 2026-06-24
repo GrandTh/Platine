@@ -18,6 +18,11 @@ function seededRank(id: string, seed: string): number {
   return h >>> 0
 }
 
+// Retire le « - Topic » des artistes auto-générés YouTube (données déjà stockées).
+function stripTopic(s: string): string {
+  return s.replace(/\s*-\s*Topic\s*$/i, '').trim()
+}
+
 interface DbTrack {
   id: string
   room_id: string
@@ -28,6 +33,7 @@ interface DbTrack {
   external_id: string
   added_by: string
   played: boolean
+  duration: number | null
   created_at: string
 }
 
@@ -46,6 +52,8 @@ export interface QueueTrack {
   addedBy: string
   voters: string[]
   createdAt: number
+  /** Durée en secondes, si connue. */
+  duration: number | null
 }
 
 export interface NewTrack {
@@ -54,6 +62,7 @@ export interface NewTrack {
   cover?: string
   source: 'youtube' | 'spotify'
   externalId: string
+  duration?: number
 }
 
 export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string | null>) {
@@ -66,13 +75,14 @@ export function useQueue(roomId: string, uid: string, shuffleSeed?: Ref<string |
     return {
       id: r.id,
       title: r.title,
-      artist: r.artist,
+      artist: stripTopic(r.artist),
       cover: r.cover || '/sample-cover.svg',
       source: r.source,
       externalId: r.external_id,
       addedBy: r.added_by,
       voters: votesByTrack.value[r.id] ?? [],
-      createdAt: new Date(r.created_at).getTime()
+      createdAt: new Date(r.created_at).getTime(),
+      duration: r.duration
     }
   }
 

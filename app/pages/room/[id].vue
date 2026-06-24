@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PerspectiveCamera } from 'three'
-import { EMOTES, twemojiUrl, useEmotes } from '~/composables/useEmotes'
+import { emojiToCode, twemojiUrl, useEmotes } from '~/composables/useEmotes'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -32,7 +32,7 @@ const uid = useAnonId()
 const {
   exists, ready, mode, isHost, playing, togglePlaying,
   broadcastSeek, onSeek, currentTrackId, setCurrentTrack,
-  shuffleSeed, reshuffle
+  shuffleSeed, reshuffle, autoplay, setAutoplay
 } = useRoomLifecycle(roomId.value, uid, wantHost, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
 
@@ -82,7 +82,22 @@ const {
 } = useSkipVote(roomId.value, uid, currentTrackId, members)
 
 // Emotes / réactions en temps réel (broadcast Supabase, rendu Twemoji).
-const { active: emotes, send: sendEmote } = useEmotes(roomId.value)
+// `recentEmotes` = barre des récents (par utilisateur) ; le sélecteur « … »
+// donne accès à tous les emojis.
+const { active: emotes, send: sendEmote, recent: recentEmotes, pushRecent } = useEmotes(roomId.value)
+const emotePickerOpen = ref(false)
+
+// Envoie un emoji (depuis la barre des récents) ET le remet en tête.
+function react(code: string, char: string) {
+  sendEmote(code)
+  pushRecent(code, char)
+}
+
+// Sélection depuis le picker emoji-mart : emoji natif → code Twemoji.
+function onPickerSelect(native: string) {
+  react(emojiToCode(native), native)
+  emotePickerOpen.value = false
+}
 
 // Onglets du panneau latéral : recherche / playlist / membres
 const panelTab = ref<'search' | 'queue' | 'members'>('queue')
@@ -149,6 +164,25 @@ const nowPlaying = computed(() => sorted.value.find(t => t.id === currentTrackId
 // File "à venir" = tout sauf le morceau en cours, triée par votes.
 const upNext = computed(() => sorted.value.filter(t => t.id !== currentTrackId.value))
 
+// Temps total de la file (en cours + à venir) ; durées inconnues comptées 0.
+const totalDuration = computed(() => sorted.value.reduce((acc, t) => acc + (t.duration ?? 0), 0))
+const totalDurationLabel = computed(() => {
+  const s = totalDuration.value
+  if (!s) return ''
+  const h = Math.floor(s / 3600)
+  const m = Math.round((s % 3600) / 60)
+  return h ? `${h} h ${m.toString().padStart(2, '0')}` : `${m} min`
+})
+
+// Durée d'un morceau (m:ss ou h:mm:ss) ; null/0 → '' (inconnue, masquée).
+function fmtDuration(s: number | null): string {
+  if (!s || s <= 0) return ''
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = Math.floor(s % 60).toString().padStart(2, '0')
+  return h ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`
+}
+
 // Orchestration (hôte) : si aucun morceau courant valide mais la file n'est
 // pas vide, on lance le plus voté. Couvre le 1er ajout et les cas limites.
 watch([currentTrackId, sorted, isHost, ready], () => {
@@ -158,6 +192,41 @@ watch([currentTrackId, sorted, isHost, ready], () => {
     setCurrentTrack(sorted.value[0]?.id ?? null)
   }
 }, { immediate: true })
+
+// Autoplay (hôte) : on garde TOUJOURS 1 morceau d'avance. Dès qu'il n'y a plus
+// rien « à venir » après le morceau courant, on ajoute UN morceau populaire
+// (0 quota) → file propre (courant + 1) et enchaînement sans trou. Anti-boucle :
+// verrou de ré-entrance + délai mini, et on exclut les morceaux déjà en file.
+// Verrou de ré-entrance : empêche deux ajouts concurrents. Pas de cooldown
+// temporel (il bloquerait l'amorçage « courant + 1 ») : la condition
+// `upNext.length === 0` s'éteint d'elle-même dès qu'on a 1 morceau d'avance.
+let refilling = false
+async function refillOne() {
+  if (refilling) return
+  refilling = true
+  try {
+    const pop = await $fetch<{ videoId: string, title: string, channel: string, thumbnail: string, duration?: number }[]>('/api/popular')
+    const candidates = pop.filter(r => !isQueued('youtube', r.videoId))
+    const r = candidates[Math.floor(Math.random() * candidates.length)]
+    if (r) {
+      await addTrack({
+        title: r.title, artist: r.channel, cover: r.thumbnail,
+        source: 'youtube', externalId: r.videoId, duration: r.duration
+      }, false) // 0 vote : c'est un morceau de remplissage
+    }
+  } catch {
+    // best-effort
+  } finally {
+    refilling = false
+  }
+}
+// currentTrackId dans les deps : quand l'orchestration fige le morceau courant,
+// `upNext` se vide → on re-déclenche pour remettre 1 morceau d'avance.
+watch([sorted, currentTrackId, autoplay, isHost, ready], () => {
+  if (ready.value && isHost.value && autoplay.value && upNext.value.length === 0) {
+    refillOne()
+  }
+})
 
 // --- Progression + seek (timeline) ---
 const playerRef = useTemplateRef<{ seek: (s: number) => void, enterFullscreen: () => void, needsGesture: boolean, resume: () => void }>('playerRef')
@@ -315,7 +384,7 @@ const activePlaylistLabel = computed(() =>
 // apparaisse dans la file).
 const addingIds = ref(new Set<string>())
 
-async function pick(result: { videoId: string, title: string, channel: string, thumbnail: string }) {
+async function pick(result: { videoId: string, title: string, channel: string, thumbnail: string, duration?: number }) {
   if (addingIds.value.has(result.videoId)) return // déjà en cours
   // On NE vide PAS la recherche : permet d'ajouter plusieurs titres d'affilée
   // (ex. plusieurs morceaux du même artiste) sans retaper.
@@ -326,7 +395,8 @@ async function pick(result: { videoId: string, title: string, channel: string, t
       artist: result.channel,
       cover: result.thumbnail,
       source: 'youtube',
-      externalId: result.videoId
+      externalId: result.videoId,
+      duration: result.duration
     })
     if (res === 'full') {
       importMsg.value = t('panel.queueFull')
@@ -347,7 +417,7 @@ async function importPlaylist() {
   importing.value = true
   importMsg.value = ''
   try {
-    const list = await $fetch<{ videoId: string, title: string, channel: string, thumbnail: string }[]>(
+    const list = await $fetch<{ videoId: string, title: string, channel: string, thumbnail: string, duration?: number }[]>(
       '/api/playlist', { query: { id, uid, roomId: roomId.value } }
     )
     const added = await addMany(list.map(r => ({
@@ -355,7 +425,8 @@ async function importPlaylist() {
       artist: r.channel,
       cover: r.thumbnail,
       source: 'youtube' as const,
-      externalId: r.videoId
+      externalId: r.videoId,
+      duration: r.duration
     })))
     importMsg.value = added > 0 ? t('panel.imported', { count: added }) : t('panel.alreadyQueued')
     clear()
@@ -859,14 +930,20 @@ async function copyLink() {
     </div>
 
     <!-- ───────── Emotes / réactions (temps réel) ───────── -->
-    <!-- Barre des 5 emotes (bas gauche) -->
+    <!-- Voile de fermeture du sélecteur (clic à l'extérieur) -->
+    <div
+      v-if="emotePickerOpen"
+      class="fixed inset-0 z-20"
+      @click="emotePickerOpen = false"
+    />
+    <!-- Barre des emotes récentes (bas gauche) + bouton « … » (tous les emojis) -->
     <div class="pointer-events-auto absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-full border border-white/15 bg-black/40 p-1.5 backdrop-blur-xl md:bottom-28 md:left-8 md:top-auto md:translate-y-0 md:flex-row lg:bottom-8">
       <button
-        v-for="e in EMOTES"
+        v-for="e in recentEmotes"
         :key="e.code"
         class="grid size-9 cursor-pointer place-items-center rounded-full transition hover:bg-white/15 active:scale-90"
         :aria-label="e.label"
-        @click="sendEmote(e.code)"
+        @click="react(e.code, e.char)"
       >
         <img
           :src="twemojiUrl(e.code)"
@@ -875,7 +952,30 @@ async function copyLink() {
           draggable="false"
         >
       </button>
+
+      <!-- Bouton « … » : ouvre le sélecteur emoji-mart (tous les emojis) au-dessus -->
+      <button
+        class="grid size-9 cursor-pointer place-items-center rounded-full text-white/60 transition hover:bg-white/15 hover:text-white active:scale-90"
+        :aria-label="t('room.moreEmotes')"
+        :aria-expanded="emotePickerOpen"
+        @click="emotePickerOpen = !emotePickerOpen"
+      >
+        <UIcon
+          name="i-lucide-ellipsis"
+          class="size-5"
+        />
+      </button>
     </div>
+
+    <!-- Sélecteur emoji-mart (chargé à la demande). PLACÉ HORS de la barre : la
+         barre a un backdrop-filter qui « capturerait » un position:fixed. Ancré
+         en bas à gauche (au-dessus de la barre), largeur/hauteur bornées au
+         viewport → ne déborde jamais (mobile comme desktop). -->
+    <EmojiPicker
+      v-if="emotePickerOpen"
+      class="fixed bottom-24 left-2 z-[60] h-[min(70vh,28rem)] w-[min(22rem,calc(100vw-1rem))] overflow-hidden rounded-xl md:left-8 md:bottom-44 lg:bottom-24"
+      @select="onPickerSelect"
+    />
 
     <!-- Overlay des emotes flottantes (fade-in par le bas + rotation aléatoire) -->
     <div class="pointer-events-none absolute inset-0 z-40 overflow-hidden">
@@ -1116,7 +1216,7 @@ async function copyLink() {
                     :text="r.title"
                     class="text-sm font-medium"
                   />
-                  <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
+                  <span class="block truncate text-xs text-white/50">{{ r.channel }}<template v-if="fmtDuration(r.duration ?? null)"> · {{ fmtDuration(r.duration ?? null) }}</template></span>
                 </span>
                 <!-- En cours d'ajout → spinner (anti double-clic) -->
                 <UIcon
@@ -1207,7 +1307,7 @@ async function copyLink() {
                         :text="r.title"
                         class="text-sm font-medium"
                       />
-                      <span class="block truncate text-xs text-white/50">{{ r.channel }}</span>
+                      <span class="block truncate text-xs text-white/50">{{ r.channel }}<template v-if="fmtDuration(r.duration ?? null)"> · {{ fmtDuration(r.duration ?? null) }}</template></span>
                     </span>
                     <UIcon
                       v-if="addingIds.has(r.videoId)"
@@ -1252,6 +1352,32 @@ async function copyLink() {
           </div>
         </div>
 
+        <!-- En-tête file : temps total (si dispo) + toggle autoplay (hôte) -->
+        <div
+          v-if="panelTab === 'queue'"
+          class="mt-3 flex min-h-7 items-center justify-between gap-2"
+        >
+          <span class="text-xs text-white/40">
+            <template v-if="nowPlaying || upNext.length">
+              {{ sorted.length }} {{ sorted.length > 1 ? t('panel.tracksCountPlural') : t('panel.tracksCount') }}<template v-if="totalDurationLabel"> · {{ totalDurationLabel }}</template>
+            </template>
+          </span>
+          <button
+            v-if="isHost"
+            class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition"
+            :class="autoplay ? 'bg-fuchsia-500/20 text-fuchsia-200' : 'text-white/45 hover:bg-white/10 hover:text-white/80'"
+            :aria-pressed="autoplay"
+            :title="t('panel.autoplayHint')"
+            @click="setAutoplay(!autoplay)"
+          >
+            <UIcon
+              name="i-lucide-infinity"
+              class="size-3.5"
+            />
+            {{ t('panel.autoplay') }}
+          </button>
+        </div>
+
         <!-- État vide (rien en lecture ni à venir) -->
         <div
           v-if="panelTab === 'queue' && !nowPlaying && upNext.length === 0"
@@ -1289,7 +1415,9 @@ async function copyLink() {
                 class="text-sm font-medium"
               />
               <p class="truncate text-xs text-white/50">
-                {{ nowPlaying.artist || '—' }}
+                {{ nowPlaying.artist || '—' }}<template v-if="fmtDuration(nowPlaying.duration)">
+                  · {{ fmtDuration(nowPlaying.duration) }}
+                </template>
               </p>
             </div>
             <span class="shrink-0 text-xs font-medium text-white/50">{{ t('panel.nowPlaying') }}</span>
@@ -1349,7 +1477,9 @@ async function copyLink() {
                 class="text-sm font-medium"
               />
               <p class="truncate text-xs text-white/50">
-                {{ track.artist || '—' }}
+                {{ track.artist || '—' }}<template v-if="fmtDuration(track.duration)">
+                  · {{ fmtDuration(track.duration) }}
+                </template>
               </p>
             </div>
 

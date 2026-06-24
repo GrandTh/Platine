@@ -12,7 +12,7 @@ const WINDOWS: RateWindow[] = [
   { tag: '1h', ttl: 3600, limit: 30 }
 ]
 
-interface InTrack { title?: string, artist?: string, cover?: string, source?: string, externalId?: string }
+interface InTrack { title?: string, artist?: string, cover?: string, source?: string, externalId?: string, duration?: number }
 
 export default defineEventHandler(async (event): Promise<{ added: number }> => {
   const body = await readBody(event)
@@ -59,6 +59,7 @@ export default defineEventHandler(async (event): Promise<{ added: number }> => {
       source: t.source,
       external_id: t.externalId as string,
       added_by: uid,
+      duration: typeof t.duration === 'number' ? Math.round(t.duration) : null,
       created_at: new Date(base + i).toISOString()
     }))
 

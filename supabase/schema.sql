@@ -22,6 +22,7 @@ create table if not exists public.rooms (
                 check (mode in ('speaker', 'each')),
   playing     boolean not null default true,
   current_track_id uuid,                             -- morceau en lecture (figé)
+  autoplay    boolean not null default false,        -- file vide → ré-enfile des populaires
   last_active timestamptz not null default now(),
   host_absent_since timestamptz,                     -- début d'absence du proprio (grâce passation)
   created_at  timestamptz not null default now()
@@ -38,6 +39,7 @@ create table if not exists public.tracks (
   external_id text not null,                        -- videoId YouTube / uri Spotify
   added_by    text not null,                        -- id anonyme
   played      boolean not null default false,
+  duration    integer,                              -- durée en secondes (videos.list, mise en cache)
   created_at  timestamptz not null default now()
 );
 

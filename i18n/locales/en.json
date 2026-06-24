@@ -64,7 +64,8 @@
     "skipVotedBtn": "Vote removed",
     "tvMode": "TV mode",
     "tvExit": "Exit TV mode",
-    "tvIdle": "Waiting for music…"
+    "tvIdle": "Waiting for music…",
+    "moreEmotes": "More emojis"
   },
   "panel": {
     "search": "Search",
@@ -95,6 +96,10 @@
     "you": "(you)",
     "renameAria": "Change my name",
     "isHost": "You are the host of this room.",
-    "isGuest": "You joined this room."
+    "isGuest": "You joined this room.",
+    "tracksCount": "track",
+    "tracksCountPlural": "tracks",
+    "autoplay": "Non-stop music",
+    "autoplayHint": "When the queue is empty, keeps playing popular tracks"
   }
 }
