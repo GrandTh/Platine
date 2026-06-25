@@ -35,7 +35,7 @@ const dontShow = ref(false)
 
       <!-- Contenu défilable -->
       <div class="min-h-0 flex-1 overflow-y-auto p-5">
-        <ChangelogList />
+        <ChangelogList latest-only />
       </div>
 
       <!-- Pied : ne plus afficher + fermer -->

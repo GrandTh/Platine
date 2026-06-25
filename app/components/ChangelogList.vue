@@ -8,8 +8,13 @@
  */
 import { CHANGELOG } from '~/utils/changelog'
 
+/** `latestOnly` → n'affiche que la dernière version (modale « Nouveautés »).
+ *  Par défaut : tout le changelog (page /nouveautes). */
+const props = defineProps<{ latestOnly?: boolean }>()
+
 const { t, locale } = useI18n()
 const isFr = computed(() => locale.value === 'fr')
+const entries = computed(() => props.latestOnly ? CHANGELOG.slice(0, 1) : CHANGELOG)
 
 function txt(i: { fr: string, en?: string }) {
   return !isFr.value && i.en ? i.en : i.fr
@@ -24,7 +29,7 @@ function fmtDate(d: string) {
 <template>
   <div class="space-y-8">
     <section
-      v-for="entry in CHANGELOG"
+      v-for="entry in entries"
       :key="entry.version"
       class="space-y-3"
     >
