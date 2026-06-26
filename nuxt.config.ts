@@ -18,10 +18,13 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  // Clé YouTube : côté serveur uniquement (jamais exposée au navigateur).
-  // Renseignée via NUXT_YOUTUBE_API_KEY ou YOUTUBE_API_KEY dans .env.
+  // Secrets côté serveur uniquement (jamais exposés au navigateur).
   runtimeConfig: {
-    youtubeApiKey: process.env.YOUTUBE_API_KEY ?? ''
+    // Clé YouTube — via NUXT_YOUTUBE_API_KEY ou YOUTUBE_API_KEY dans .env.
+    youtubeApiKey: process.env.YOUTUBE_API_KEY ?? '',
+    // Allowlist des emails admin (séparés par des virgules) autorisés sur /admin.
+    // Vérifiée côté serveur dans requireAdmin (en plus de la session + 2FA aal2).
+    adminEmails: process.env.ADMIN_EMAILS ?? ''
   },
 
   routeRules: {
