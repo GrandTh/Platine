@@ -30,7 +30,7 @@ export default defineEventHandler(async (event): Promise<{ status: 'added' | 'vo
 
   const supabase = serverSupabaseServiceRole<Database>(event)
   await rateLimitByIp(event, supabase, 'track-add', WINDOWS)
-  await requireActiveMember(supabase, uid, roomId)
+  await requireCanAdd(supabase, uid, roomId)
 
   // Doublon → vote pour l'existant.
   const { data: existing } = await supabase

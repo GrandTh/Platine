@@ -35,6 +35,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.2.0',
+    date: '2026-06-26',
+    features: [
+      {
+        fr: 'L\'hôte peut désormais retirer à un participant le droit d\'ajouter des morceaux (et le lui rendre à tout moment), pour garder la main sur la file.',
+        en: 'The host can now revoke a participant\'s right to add tracks (and restore it anytime), to keep control over the queue.'
+      }
+    ],
+    fixes: true
+  },
+  {
     version: '1.1.0',
     date: '2026-06-24',
     features: [

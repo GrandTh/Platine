@@ -132,6 +132,7 @@ export type Database = {
           room_id: string
           uid: string
           name: string | null
+          muted: boolean
           last_seen: string
           created_at: string
         }
@@ -139,6 +140,7 @@ export type Database = {
           room_id: string
           uid: string
           name?: string | null
+          muted?: boolean
           last_seen?: string
           created_at?: string
         }
@@ -146,6 +148,7 @@ export type Database = {
           room_id?: string
           uid?: string
           name?: string | null
+          muted?: boolean
           last_seen?: string
           created_at?: string
         }

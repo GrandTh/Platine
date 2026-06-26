@@ -56,6 +56,37 @@ export async function requireActiveMember(
   }
 }
 
+/**
+ * Exige que l'uid puisse AJOUTER des morceaux : membre actif ET non « muté »
+ * (droit d'ajout retiré par l'hôte, cf. /api/member/moderate). En une seule
+ * requête (récupère aussi `muted`). Fail-open sur erreur DB (colonne absente
+ * avant la migration 21) → on ne casse pas l'ajout. Utilisé par track/add &
+ * track/import (le vote/skip/recherche restent permis à un membre muté).
+ */
+export async function requireCanAdd(
+  supabase: SupabaseClient<Database>,
+  uid?: string,
+  roomId?: string
+): Promise<void> {
+  if (!uid || !roomId) {
+    throw createError({ statusCode: 403, statusMessage: 'Rejoins une room' })
+  }
+  const { data: member, error } = await supabase
+    .from('members')
+    .select('uid, muted')
+    .eq('room_id', roomId)
+    .eq('uid', uid)
+    .gt('last_seen', new Date(Date.now() - MEMBER_WINDOW_MS).toISOString())
+    .maybeSingle()
+  if (error) return // fail-open (ex. migration pas encore jouée)
+  if (!member) {
+    throw createError({ statusCode: 403, statusMessage: 'Rejoins une room' })
+  }
+  if (member.muted) {
+    throw createError({ statusCode: 403, statusMessage: 'Ajout de morceaux désactivé par l\'hôte' })
+  }
+}
+
 // Endpoints YouTube (search / video / playlist) : rate limit + membre actif.
 const YT_WINDOWS: RateWindow[] = [
   { tag: '10s', ttl: 10, limit: 8 },

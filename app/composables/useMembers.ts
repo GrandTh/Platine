@@ -25,6 +25,7 @@ function readSavedName(): string | null {
 interface DbMember {
   uid: string
   name: string | null
+  muted: boolean
   last_seen: string
   created_at: string
 }
@@ -34,6 +35,7 @@ export interface Member {
   name: string
   color: string
   isSelf: boolean
+  muted: boolean
 }
 
 export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
@@ -66,12 +68,16 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
         uid: m.uid,
         name: m.name?.trim() || shortId(m.uid),
         color: colorByUid.get(m.uid)!,
-        isSelf: m.uid === uid
+        isSelf: m.uid === uid,
+        muted: m.muted === true
       }))
       .sort((a, b) => (a.isSelf ? -1 : b.isSelf ? 1 : a.name.localeCompare(b.name)))
   })
 
   const myName = computed(() => members.value.find(m => m.isSelf)?.name ?? shortId(uid))
+
+  // Mon propre droit d'ajout retiré par l'hôte (réactif via le realtime members).
+  const iAmMuted = computed(() => members.value.find(m => m.isSelf)?.muted ?? false)
 
   // Couleur d'un participant par son uid : SOURCE UNIQUE de couleur.
   // Si le membre est présent → sa couleur (par rang, unique) ; sinon repli sur
@@ -84,7 +90,7 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   async function fetchAll() {
     const { data } = await supabase
       .from('members')
-      .select('uid, name, last_seen, created_at')
+      .select('uid, name, muted, last_seen, created_at')
       .eq('room_id', roomId)
     rows.value = (data ?? []) as DbMember[]
   }
@@ -116,6 +122,17 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
     }
     try {
       await $fetch('/api/member', { method: 'POST', body: { action: 'rename', roomId, uid, name: clean } })
+    } catch { /* best-effort */ }
+  }
+
+  // Modération hôte : retirer / rendre le droit d'ajouter à un membre.
+  // Best-effort ; l'état réel revient par le realtime members (fetchAll).
+  async function moderate(targetUid: string, muted: boolean) {
+    try {
+      await $fetch('/api/member/moderate', {
+        method: 'POST',
+        body: { roomId, uid, targetUid, muted }
+      })
     } catch { /* best-effort */ }
   }
 
@@ -188,5 +205,5 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
     leave()
   })
 
-  return { members, myName, rename, colorFor }
+  return { members, myName, iAmMuted, rename, colorFor, moderate }
 }

@@ -115,6 +115,7 @@ create table if not exists public.members (
   room_id   text not null references public.rooms (id) on delete cascade,
   uid       text not null,                       -- id anonyme du participant
   name      text,                                -- nom choisi (null → ID affiché)
+  muted     boolean not null default false,      -- droit d'ajouter retiré (mig. 21)
   last_seen timestamptz not null default now(),
   created_at timestamptz not null default now(),
   primary key (room_id, uid)

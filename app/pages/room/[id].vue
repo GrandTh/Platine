@@ -73,7 +73,7 @@ const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, clearQueue, 
 
 // Membres de la room (présence + noms personnalisables, couleur par uid).
 // On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
-const { members, myName, rename, colorFor } = useMembers(roomId.value, uid, ready)
+const { members, myName, iAmMuted, rename, colorFor, moderate } = useMembers(roomId.value, uid, ready)
 
 // Vote pour skip (invités). Quorum = 50% des invités présents (hôte exclu).
 const {
@@ -322,10 +322,17 @@ const canShuffle = computed(() =>
 
 // Recherche YouTube (débouncée, via la route serveur)
 const {
-  query: search, results, loading: searching, clear, submit: submitSearch,
+  query: search, results, loading: searching, clear, submit: runSearch,
   popular, loadPopular, loadPlaylist, activePlaylistId, importablePlaylistId,
   recommended, loadRecommended
 } = useYoutubeSearch(uid, roomId.value)
+
+// Un membre muté ne peut rien ajouter → inutile de consommer du quota YouTube
+// (la recherche est bloquée côté client ; l'ajout est de toute façon refusé serveur).
+function submitSearch() {
+  if (iAmMuted.value) return
+  runSearch()
+}
 
 // Repli de la sidebar (desktop ≥ lg uniquement), mémorisé par navigateur.
 const PANEL_KEY = 'platine:panelCollapsed'
@@ -385,6 +392,7 @@ const activePlaylistLabel = computed(() =>
 const addingIds = ref(new Set<string>())
 
 async function pick(result: { videoId: string, title: string, channel: string, thumbnail: string, duration?: number }) {
+  if (iAmMuted.value) return // droit d'ajout retiré par l'hôte (refusé serveur)
   if (addingIds.value.has(result.videoId)) return // déjà en cours
   // On NE vide PAS la recherche : permet d'ajouter plusieurs titres d'affilée
   // (ex. plusieurs morceaux du même artiste) sans retaper.
@@ -412,6 +420,7 @@ async function pick(result: { videoId: string, title: string, channel: string, t
 const importing = ref(false)
 const importMsg = ref('')
 async function importPlaylist() {
+  if (iAmMuted.value) return // droit d'ajout retiré par l'hôte
   const id = importablePlaylistId.value
   if (!id || importing.value) return
   importing.value = true
@@ -1097,6 +1106,13 @@ async function copyLink() {
                     v-if="m.isSelf"
                     class="text-xs text-white/40"
                   >{{ t('panel.you') }}</span>
+                  <!-- Membre privé du droit d'ajouter (visible par tous) -->
+                  <UIcon
+                    v-if="m.muted"
+                    name="i-lucide-ban"
+                    class="ml-1 inline size-3.5 align-text-bottom text-amber-400/80"
+                    :title="t('panel.mutedBadge')"
+                  />
                 </span>
                 <button
                   v-if="m.isSelf"
@@ -1106,6 +1122,20 @@ async function copyLink() {
                 >
                   <UIcon
                     name="i-lucide-pencil"
+                    class="size-4"
+                  />
+                </button>
+                <!-- Hôte : retirer / rendre le droit d'ajouter à ce membre -->
+                <button
+                  v-else-if="isHost"
+                  class="shrink-0 cursor-pointer transition"
+                  :class="m.muted ? 'text-amber-400 hover:text-amber-300' : 'text-white/40 hover:text-white'"
+                  :aria-label="m.muted ? t('panel.unmuteAria') : t('panel.muteAria')"
+                  :title="m.muted ? t('panel.unmuteAria') : t('panel.muteAria')"
+                  @click="moderate(m.uid, !m.muted)"
+                >
+                  <UIcon
+                    :name="m.muted ? 'i-lucide-circle-slash' : 'i-lucide-ban'"
                     class="size-4"
                   />
                 </button>
@@ -1119,8 +1149,22 @@ async function copyLink() {
           v-show="panelTab === 'search'"
           class="mt-4 flex min-h-0 flex-1 flex-col"
         >
+          <!-- Droit d'ajout retiré par l'hôte → recherche/ajout désactivés -->
+          <div
+            v-if="iAmMuted"
+            class="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2.5 text-sm text-amber-200"
+          >
+            <UIcon
+              name="i-lucide-ban"
+              class="size-4 shrink-0"
+            />
+            {{ t('panel.mutedNotice') }}
+          </div>
           <!-- Barre de recherche -->
-          <div class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
+          <div
+            v-else
+            class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5"
+          >
             <UIcon
               :name="searching ? 'i-lucide-loader-circle' : 'i-lucide-search'"
               class="size-4 text-white/40"

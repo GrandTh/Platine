@@ -1,7 +1,7 @@
 /**
- * Écriture des membres (insert/update anon désormais bloqués par la RLS).
- * Actions : join (upsert présence), heartbeat (last_seen), rename (pseudo).
- * Création via endpoint rate-limité = pièce maîtresse anti faux-membres
+ * Ecriture des membres (insert/update anon desormais bloques par la RLS).
+ * Actions : join (upsert presence), heartbeat (last_seen), rename (pseudo).
+ * Creation via endpoint rate-limite = piece maitresse anti faux-membres
  * (qui borne aussi le bourrage de votes/skips, uniques par utilisateur).
  */
 import { serverSupabaseServiceRole } from '#supabase/server'
@@ -11,6 +11,25 @@ const LIMITS: Record<string, RateWindow[]> = {
   join: [{ tag: '1m', ttl: 60, limit: 30 }, { tag: '1h', ttl: 3600, limit: 200 }],
   heartbeat: [{ tag: '1m', ttl: 60, limit: 60 }],
   rename: [{ tag: '1m', ttl: 60, limit: 15 }]
+}
+
+// Caracteres invisibles bannis d'un pseudo (sinon pseudo visuellement vide) :
+// controles C0/C1, soft hyphen, espaces de largeur nulle, jointeurs, marques
+// directionnelles, separateurs ligne/para, word joiner, BOM. String.trim() ne
+// les retire PAS -> un pseudo compose uniquement de ceux-ci s'affichait VIDE.
+const INVISIBLE = /[\u0000-\u001F\u007F-\u009F\u00AD\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g
+
+/** Nettoie un pseudo : retire les invisibles ci-dessus, normalise les espaces,
+ *  borne a 24 car. Vide apres nettoyage -> undefined (repli client sur l'id court). */
+function cleanName(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const cleaned = raw
+    .replace(INVISIBLE, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 24)
+    .trim()
+  return cleaned || undefined
 }
 
 export default defineEventHandler(async (event): Promise<{ ok: true }> => {
@@ -23,7 +42,7 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
   }
 
   const supabase = serverSupabaseServiceRole<Database>(event)
-  const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 24) : undefined
+  const name = cleanName(body?.name)
 
   if (action === 'join') {
     await rateLimitByIp(event, supabase, 'member-join', LIMITS.join)
@@ -33,9 +52,7 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
       last_seen: new Date().toISOString(),
       ...(name ? { name } : {})
     })
-    // Maintient la room en vie (remplace l'ancien heartbeat `rooms` côté client).
     await supabase.from('rooms').update({ last_active: new Date().toISOString() }).eq('id', roomId)
-    // Réconcilie l'hôte (retour du proprio = reprise immédiate). Best-effort.
     await reconcileHost(supabase, roomId).catch(() => {})
     return { ok: true }
   }
@@ -44,9 +61,7 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
     await supabase.from('members')
       .update({ last_seen: new Date().toISOString() })
       .eq('room_id', roomId).eq('uid', uid)
-    // Maintient la room en vie côté serveur (plus d'écriture `rooms` en anon).
     await supabase.from('rooms').update({ last_active: new Date().toISOString() }).eq('id', roomId)
-    // Réconcilie l'hôte à chaque heartbeat (déclenche la passation au bon moment).
     await reconcileHost(supabase, roomId).catch(() => {})
     return { ok: true }
   }

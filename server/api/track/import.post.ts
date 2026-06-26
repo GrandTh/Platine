@@ -27,7 +27,7 @@ export default defineEventHandler(async (event): Promise<{ added: number }> => {
 
   const supabase = serverSupabaseServiceRole<Database>(event)
   await rateLimitByIp(event, supabase, 'track-import', WINDOWS)
-  await requireActiveMember(supabase, uid, roomId)
+  await requireCanAdd(supabase, uid, roomId)
 
   // Doublons déjà en file + place restante.
   const { data: current } = await supabase

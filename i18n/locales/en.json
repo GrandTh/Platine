@@ -100,6 +100,10 @@
     "tracksCount": "track",
     "tracksCountPlural": "tracks",
     "autoplay": "Non-stop music",
-    "autoplayHint": "When the queue is empty, keeps playing popular tracks"
+    "autoplayHint": "When the queue is empty, keeps playing popular tracks",
+    "muteAria": "Remove add permission",
+    "unmuteAria": "Restore add permission",
+    "mutedBadge": "Can no longer add tracks",
+    "mutedNotice": "The host removed your permission to add tracks."
   }
 }
