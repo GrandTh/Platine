@@ -9,7 +9,7 @@
  * (table search_cache) : une recherche déjà faite est resservie sans appeler
  * YouTube (0 unité).
  */
-import { serverSupabaseClient } from '#supabase/server'
+import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database } from '~/types/database.types'
 
 interface YtSearchItem {
@@ -60,7 +60,9 @@ export default defineEventHandler(async (event): Promise<SearchResult[]> => {
   // Min 2 caractères (déjà filtré côté client, re-vérifié ici).
   if (!raw || raw.length < 2) return []
 
-  const supabase = await serverSupabaseClient<Database>(event)
+  // Service role : le cache (search_cache) n'est plus accessible en écriture anon
+  // (anti cache-poisoning) → toutes ses lectures/écritures passent par ici.
+  const supabase = serverSupabaseServiceRole<Database>(event)
 
   // Anti-abus (avant tout appel YouTube) : rate limit IP + membre actif.
   await guardYoutubeRequest(event, supabase, 'search', uid, roomId)

@@ -12,8 +12,13 @@ import { COLOR_PALETTE, userColor, shortId } from '~/composables/useUserColor'
  *   contrairement à un simple hash de l'uid).
  */
 
-const HEARTBEAT_MS = 20_000
+const HEARTBEAT_MS = 30_000
 const PRESENT_WINDOW_MS = 60_000
+// Recalcul LOCAL de la présence (fait disparaître les partis sans requête).
+const NOW_TICK_MS = 10_000
+// Resync complet de secours (filet pour un event Realtime raté). Espacé : le
+// gros des mises à jour passe par le merge incrémental du Realtime.
+const RESYNC_MS = 60_000
 // Pseudo mémorisé entre les rooms / sessions (par navigateur).
 const NAME_KEY = 'platine:name'
 
@@ -46,6 +51,7 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
   const now = ref(Date.now())
   let timer: ReturnType<typeof setInterval> | null = null
   let tick: ReturnType<typeof setInterval> | null = null
+  let resync: ReturnType<typeof setInterval> | null = null
   let channel: ReturnType<typeof supabase.channel> | null = null
 
   // Membres présents (vus récemment), nom résolu + couleur unique.
@@ -93,6 +99,27 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
       .select('uid, name, muted, last_seen, created_at')
       .eq('room_id', roomId)
     rows.value = (data ?? []) as DbMember[]
+  }
+
+  // Applique UN changement Realtime en mémoire (au lieu de re-télécharger toute
+  // la table à chaque heartbeat des autres → évite l'amplification quadratique).
+  function applyChange(payload: {
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+    new?: Partial<DbMember>
+    old?: Partial<DbMember>
+  }) {
+    if (payload.eventType === 'DELETE') {
+      const goneUid = payload.old?.uid
+      if (goneUid) rows.value = rows.value.filter(r => r.uid !== goneUid)
+      return
+    }
+    const row = payload.new
+    if (!row?.uid) return
+    const next = rows.value.slice()
+    const idx = next.findIndex(r => r.uid === row.uid)
+    if (idx === -1) next.push(row as DbMember)
+    else next[idx] = row as DbMember
+    rows.value = next
   }
 
   // Écritures membres via les routes serveur (insert/update/delete anon bloqués
@@ -158,19 +185,22 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
     await join()
     await fetchAll()
     timer = setInterval(heartbeat, HEARTBEAT_MS)
-    // Recalcule la présence + refetch périodique → les membres partis
-    // (last_seen périmé) disparaissent même sans event.
+    // Tick LOCAL (aucune requête) : recalcule la présence → les membres partis
+    // (last_seen périmé) disparaissent tout seuls.
     tick = setInterval(() => {
       now.value = Date.now()
-      fetchAll()
-    }, 15_000)
+    }, NOW_TICK_MS)
+    // Resync de secours, espacé : rattrape un éventuel event Realtime manqué.
+    resync = setInterval(fetchAll, RESYNC_MS)
 
+    // Realtime : on applique le payload en mémoire (merge incrémental) au lieu
+    // de re-télécharger toute la liste à chaque changement.
     channel = supabase
       .channel(`members:${roomId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'members', filter: `room_id=eq.${roomId}` },
-        () => fetchAll()
+        payload => applyChange(payload as Parameters<typeof applyChange>[0])
       )
       .subscribe()
   }
@@ -199,6 +229,8 @@ export function useMembers(roomId: string, uid: string, ready: Ref<boolean>) {
     timer = null
     if (tick) clearInterval(tick)
     tick = null
+    if (resync) clearInterval(resync)
+    resync = null
     if (channel) supabase.removeChannel(channel)
     channel = null
     // Départ via navigation interne (retour accueil, etc.)

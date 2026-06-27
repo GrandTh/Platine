@@ -1,52 +1,42 @@
 /**
  * Garde des endpoints d'administration (/api/admin/*).
  *
- * Triple barrière, TOUTE côté serveur (le middleware client n'est que confort) :
- *   1. session Supabase valide (serverSupabaseUser = getUser, validé par Supabase),
- *   2. 2FA effective : le token doit être de niveau `aal2` (TOTP vérifié),
- *   3. email présent dans l'allowlist (runtimeConfig.adminEmails).
+ * Triple barrière, TOUTE côté serveur (le middleware client n'est que confort),
+ * et **fail-closed** (toute anomalie → refus) :
+ *   1. session Supabase valide : serverSupabaseUser = getClaims() qui VÉRIFIE le
+ *      JWT (signature + expiration) → un token forgé/expiré est rejeté (401) ;
+ *   2. 2FA effective : claim `aal === 'aal2'` (TOTP vérifié), sinon 403 ;
+ *   3. email présent dans l'allowlist (runtimeConfig.adminEmails), sinon 403.
+ *      Allowlist vide → personne ne passe (fail-closed).
  *
  * Aucune donnée admin n'est renvoyée sans passer par requireAdmin().
  */
-import { serverSupabaseUser, serverSupabaseSession } from '#supabase/server'
+import { serverSupabaseUser } from '#supabase/server'
 import type { H3Event } from 'h3'
-
-/** Décode (sans revérifier la signature — déjà validée par getUser) le payload
- *  d'un JWT pour en lire le claim `aal`. Renvoie null si illisible. */
-function readAal(accessToken?: string): string | null {
-  if (!accessToken) return null
-  const part = accessToken.split('.')[1]
-  if (!part) return null
-  try {
-    const json = Buffer.from(part, 'base64url').toString('utf8')
-    return (JSON.parse(json).aal as string | undefined) ?? null
-  } catch {
-    return null
-  }
-}
 
 export interface AdminUser { id: string, email: string }
 
-/** Exige un admin authentifié + 2FA (aal2) + email autorisé. Lève 401/403 sinon. */
 export async function requireAdmin(event: H3Event): Promise<AdminUser> {
-  const user = await serverSupabaseUser(event).catch(() => null)
-  if (!user?.email) {
+  // Claims du JWT VALIDÉ (getClaims vérifie signature + expiration).
+  const claims = await serverSupabaseUser(event).catch(() => null) as
+    | { sub?: string, email?: string, aal?: string }
+    | null
+
+  if (!claims?.email) {
     throw createError({ statusCode: 401, statusMessage: 'Authentification requise' })
   }
-
   // 2FA obligatoire : un simple mot de passe (aal1) ne suffit pas.
-  const session = await serverSupabaseSession(event).catch(() => null)
-  if (readAal(session?.access_token) !== 'aal2') {
+  if (claims.aal !== 'aal2') {
     throw createError({ statusCode: 403, statusMessage: 'Double authentification requise' })
   }
-
+  // Allowlist (vide → refus).
   const allow = (useRuntimeConfig(event).adminEmails || '')
     .split(',')
     .map(e => e.trim().toLowerCase())
     .filter(Boolean)
-  if (!allow.includes(user.email.toLowerCase())) {
+  if (!allow.includes(claims.email.toLowerCase())) {
     throw createError({ statusCode: 403, statusMessage: 'Accès refusé' })
   }
 
-  return { id: user.id, email: user.email }
+  return { id: claims.sub ?? '', email: claims.email }
 }

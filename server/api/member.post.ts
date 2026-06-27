@@ -13,6 +13,12 @@ const LIMITS: Record<string, RateWindow[]> = {
   rename: [{ tag: '1m', ttl: 60, limit: 15 }]
 }
 
+// On ne rafraichit `rooms.last_active` (et ne reconcilie l'hote) qu'au plus une
+// fois par room toutes les 60 s : le keep-alive n'a besoin d'etre frais qu'a
+// 5 min pres (cleanup cron). Evite un event Realtime `rooms` a CHAQUE heartbeat
+// de CHAQUE membre (amplification quadratique).
+const LAST_ACTIVE_THROTTLE_MS = 60_000
+
 // Caracteres invisibles bannis d'un pseudo (sinon pseudo visuellement vide) :
 // controles C0/C1, soft hyphen, espaces de largeur nulle, jointeurs, marques
 // directionnelles, separateurs ligne/para, word joiner, BOM. String.trim() ne
@@ -61,8 +67,15 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
     await supabase.from('members')
       .update({ last_seen: new Date().toISOString() })
       .eq('room_id', roomId).eq('uid', uid)
-    await supabase.from('rooms').update({ last_active: new Date().toISOString() }).eq('id', roomId)
-    await reconcileHost(supabase, roomId).catch(() => {})
+    // Bump `last_active` SEULEMENT s'il est perime (> 60 s) → 1 update/room/min
+    // au lieu d'un par heartbeat. La reconciliation d'hote suit le meme rythme
+    // (suffisant : grace d'hote = 3 min). `.select()` dit si une ligne a bouge.
+    const cutoff = new Date(Date.now() - LAST_ACTIVE_THROTTLE_MS).toISOString()
+    const { data: bumped } = await supabase.from('rooms')
+      .update({ last_active: new Date().toISOString() })
+      .eq('id', roomId).lt('last_active', cutoff)
+      .select('id')
+    if (bumped?.length) await reconcileHost(supabase, roomId).catch(() => {})
     return { ok: true }
   }
   if (action === 'rename') {

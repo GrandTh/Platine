@@ -10,10 +10,24 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 
-// Un membre est "actif" si vu il y a moins de 90 s (heartbeat client = 20 s).
+// Un membre est "actif" si vu il y a moins de 90 s (heartbeat client = 30 s).
 const MEMBER_WINDOW_MS = 90_000
 
 export interface RateWindow { tag: string, ttl: number, limit: number }
+
+/**
+ * IP CLIENT de confiance pour le rate limit. Sur Vercel, `x-vercel-forwarded-for`
+ * (et `x-real-ip`) sont posés par la plateforme et NON falsifiables par le client,
+ * contrairement au 1ᵉʳ maillon de `x-forwarded-for` (que le client peut préfixer
+ * pour contourner les limites). On préfère donc les en-têtes Vercel ; repli sur
+ * getRequestIP en local/dev.
+ */
+export function clientIp(event: H3Event): string {
+  return getRequestHeader(event, 'x-vercel-forwarded-for')
+    || getRequestHeader(event, 'x-real-ip')
+    || getRequestIP(event, { xForwardedFor: true })
+    || 'unknown'
+}
 
 /** Rate limit par IP, sur une ou plusieurs fenêtres. Lève 429 si dépassé. */
 export async function rateLimitByIp(
@@ -22,7 +36,7 @@ export async function rateLimitByIp(
   action: string,
   windows: RateWindow[]
 ): Promise<void> {
-  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
+  const ip = clientIp(event)
   for (const w of windows) {
     const { data: allowed } = await supabase.rpc('rl_hit', {
       p_bucket: `${action}:${w.tag}:${ip}`,

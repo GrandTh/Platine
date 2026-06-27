@@ -10,8 +10,32 @@ export interface AdminRoom {
   autoplay: boolean
   memberCount: number
   trackCount: number
+  nowPlaying: string | null
   lastActive: string
   createdAt: string
+}
+
+/** Compteurs globaux affichés dans la barre de stats du dashboard. */
+export interface AdminStats {
+  activeRooms: number
+  membersOnline: number
+  tracksQueued: number
+  votes: number
+}
+
+/** Morceau du classement « les plus ajoutés » (table popular_tracks). */
+export interface AdminTopTrack {
+  title: string
+  artist: string
+  cover: string
+  addCount: number
+}
+
+/** Réponse de /api/admin/overview. */
+export interface AdminOverview {
+  rooms: AdminRoom[]
+  stats: AdminStats
+  topTracks: AdminTopTrack[]
 }
 
 export interface AdminMember {

@@ -20,6 +20,17 @@ export default defineEventHandler(async (event): Promise<{ voted: boolean }> => 
   await rateLimitByIp(event, supabase, 'vote', WINDOWS)
   await requireActiveMember(supabase, uid, roomId)
 
+  // Le morceau doit appartenir à CETTE room (sinon vote inter-rooms possible).
+  const { data: track } = await supabase
+    .from('tracks')
+    .select('id')
+    .eq('id', trackId)
+    .eq('room_id', roomId)
+    .maybeSingle()
+  if (!track) {
+    throw createError({ statusCode: 404, statusMessage: 'Morceau introuvable dans cette room' })
+  }
+
   const { data: existing } = await supabase
     .from('votes')
     .select('track_id')

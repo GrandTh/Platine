@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
   if (existing) return { ok: true, created: false }
 
   // 2) Rate limit IP (uniquement sur les nouvelles créations).
-  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
+  const ip = clientIp(event)
   for (const w of LIMITS) {
     const { data: allowed } = await supabase.rpc('rl_hit', {
       p_bucket: `room:${w.tag}:${ip}`,

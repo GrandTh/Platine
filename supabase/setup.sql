@@ -103,8 +103,8 @@ create table if not exists public.search_cache (
 );
 
 alter table public.search_cache enable row level security;
+-- Lecture anon OK ; ÉCRITURE réservée au service role (anti cache-poisoning, mig. 22).
 create policy "search_cache: anon read"  on public.search_cache for select using (true);
-create policy "search_cache: anon write" on public.search_cache for insert with check (true);
 
 
 -- ============================================================
@@ -220,8 +220,9 @@ create table if not exists public.playlist_cache (
 );
 
 alter table public.playlist_cache enable row level security;
-create policy "playlist_cache: anon all"
-  on public.playlist_cache for all using (true) with check (true);
+-- Lecture anon OK ; ÉCRITURE réservée au service role (anti cache-poisoning, mig. 22).
+create policy "playlist_cache: anon read"
+  on public.playlist_cache for select using (true);
 -- Cron de nettoyage optionnel (pg_cron) — voir migration 11 pour le détail.
 
 

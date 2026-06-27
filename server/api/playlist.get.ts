@@ -14,7 +14,7 @@
  * les visites suivantes sont resservies depuis la DB sans toucher au quota
  * (TTL 24 h). Un cron pg_cron optionnel vide la table chaque nuit.
  */
-import { serverSupabaseClient } from '#supabase/server'
+import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database } from '~/types/database.types'
 
 // Plafond d'import par playlist (ajustable). 100 = jusqu'à 2 appels API.
@@ -67,7 +67,9 @@ export default defineEventHandler(async (event): Promise<PlaylistTrack[]> => {
 
   if (!id) return []
 
-  const supabase = await serverSupabaseClient<Database>(event)
+  // Service role : le cache (playlist_cache) n'est plus accessible en écriture
+  // anon (anti cache-poisoning / wipe) → lectures/écritures du cache passent ici.
+  const supabase = serverSupabaseServiceRole<Database>(event)
 
   // Anti-abus (rate limit IP + membre actif), avant cache et appel YouTube.
   await guardYoutubeRequest(event, supabase, 'playlist', uid, roomId)
