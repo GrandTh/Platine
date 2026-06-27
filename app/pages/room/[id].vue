@@ -545,6 +545,7 @@ async function copyLink() {
       v-if="!tvMode"
       :clear-color="darkMutedHex"
       render-mode="always"
+      :dpr="[1, 2]"
       class="absolute inset-0"
     >
       <TresPerspectiveCamera

@@ -45,6 +45,7 @@ function onFile(e: Event) {
     <TresCanvas
       :clear-color="darkMutedHex"
       render-mode="always"
+      :dpr="[1, 2]"
       class="absolute inset-0"
     >
       <TresPerspectiveCamera
