@@ -75,6 +75,40 @@ const { tracks, sorted, addTrack, addMany, toggleVote, removeTrack, clearQueue, 
 // On attend `ready` : la room doit exister avant l'insert (FK members→rooms).
 const { members, myName, iAmMuted, rename, colorFor, moderate } = useMembers(roomId.value, uid, ready)
 
+// Modération (hôte) : état de chargement par membre + action groupée.
+const moderatingUids = ref(new Set<string>())
+const moderatingAll = ref(false)
+
+async function toggleMute(targetUid: string, muted: boolean) {
+  if (moderatingUids.value.has(targetUid)) return
+  moderatingUids.value = new Set(moderatingUids.value).add(targetUid)
+  try {
+    await moderate(targetUid, muted)
+  } finally {
+    const next = new Set(moderatingUids.value)
+    next.delete(targetUid)
+    moderatingUids.value = next
+  }
+}
+
+// Les autres membres (hors soi) — cible de l'action groupée « tout (dé)muter ».
+const otherMembers = computed(() => members.value.filter(m => !m.isSelf))
+const allOthersMuted = computed(() =>
+  otherMembers.value.length > 0 && otherMembers.value.every(m => m.muted)
+)
+
+async function moderateAll(muted: boolean) {
+  if (moderatingAll.value) return
+  moderatingAll.value = true
+  try {
+    await Promise.all(
+      otherMembers.value.filter(m => m.muted !== muted).map(m => moderate(m.uid, muted))
+    )
+  } finally {
+    moderatingAll.value = false
+  }
+}
+
 // Vote pour skip (invités). Quorum = 50% des invités présents (hôte exclu).
 const {
   skipCount, hasVotedSkip, quorum, active: skipActive,
@@ -87,7 +121,8 @@ const {
 const { active: emotes, send: sendEmote, recent: recentEmotes, pushRecent } = useEmotes(roomId.value)
 const emotePickerOpen = ref(false)
 
-// Envoie un emoji (depuis la barre des récents) ET le remet en tête.
+// Envoie un emoji ET comptabilise son usage (la barre est classée par usage,
+// mais figée pendant la session → l'ordre ne bouge pas quand on spamme).
 function react(code: string, char: string) {
   sendEmote(code)
   pushRecent(code, char)
@@ -1080,6 +1115,20 @@ async function copyLink() {
           v-if="panelTab === 'members'"
           class="mt-4 flex-1 overflow-y-auto"
         >
+          <!-- Hôte : retirer / rendre le droit d'ajouter à TOUS en un clic -->
+          <button
+            v-if="isHost && otherMembers.length"
+            class="mb-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="moderatingAll"
+            @click="moderateAll(!allOthersMuted)"
+          >
+            <UIcon
+              :name="moderatingAll ? 'i-lucide-loader-circle' : (allOthersMuted ? 'i-lucide-circle-slash' : 'i-lucide-ban')"
+              class="size-4"
+              :class="{ 'animate-spin': moderatingAll }"
+            />
+            {{ allOthersMuted ? t('panel.unmuteAll') : t('panel.muteAll') }}
+          </button>
           <ul class="space-y-1.5">
             <li
               v-for="m in members"
@@ -1117,7 +1166,7 @@ async function copyLink() {
                 </span>
                 <button
                   v-if="m.isSelf"
-                  class="shrink-0 cursor-pointer text-white/40 transition hover:text-white"
+                  class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-white/40 transition hover:bg-white/10 hover:text-white"
                   :aria-label="t('panel.renameAria')"
                   @click="startRename"
                 >
@@ -1129,15 +1178,17 @@ async function copyLink() {
                 <!-- Hôte : retirer / rendre le droit d'ajouter à ce membre -->
                 <button
                   v-else-if="isHost"
-                  class="shrink-0 cursor-pointer transition"
+                  class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg transition hover:bg-white/10 disabled:cursor-not-allowed"
                   :class="m.muted ? 'text-amber-400 hover:text-amber-300' : 'text-white/40 hover:text-white'"
+                  :disabled="moderatingUids.has(m.uid)"
                   :aria-label="m.muted ? t('panel.unmuteAria') : t('panel.muteAria')"
                   :title="m.muted ? t('panel.unmuteAria') : t('panel.muteAria')"
-                  @click="moderate(m.uid, !m.muted)"
+                  @click="toggleMute(m.uid, !m.muted)"
                 >
                   <UIcon
-                    :name="m.muted ? 'i-lucide-circle-slash' : 'i-lucide-ban'"
+                    :name="moderatingUids.has(m.uid) ? 'i-lucide-loader-circle' : (m.muted ? 'i-lucide-circle-slash' : 'i-lucide-ban')"
                     class="size-4"
+                    :class="{ 'animate-spin': moderatingUids.has(m.uid) }"
                   />
                 </button>
               </template>

@@ -54,34 +54,64 @@ export function twemojiUrl(code: string): string {
   return `https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${code}.svg`
 }
 
-// --- Récents (par utilisateur, persistés et VALIDÉS) ---
-const RECENT_KEY = 'platine:emotes:recent'
-const RECENT_MAX = 5
+// --- Barre des emotes : CLASSEMENT PAR USAGE, figé pendant la session ---
+//
+// On persiste un compteur d'utilisation par emoji. La barre affichée est un
+// SNAPSHOT calculé au montage (les plus utilisés d'abord) qui NE bouge PAS
+// pendant qu'on tape (sinon le bouton se déplace sous le doigt quand on spamme).
+// Le classement se met à jour au prochain passage dans une room.
+const USAGE_KEY = 'platine:emotes:usage'
+const OLD_RECENT_KEY = 'platine:emotes:recent' // ancien format (array de récents)
+const BAR_BASE = 5 // taille de la barre figée (top usages + défauts)
+const BAR_MAX = 7 // + emojis NOUVEAUX ajoutés en cours de session (à la fin)
 
-/** Lit les récents du localStorage en ne gardant QUE des entrées valides
- *  (code = code-points, char = chaîne courte), puis complète avec les défauts. */
-function loadRecent(): EmoteDef[] {
-  let stored: EmoteDef[] = []
-  if (import.meta.client) {
-    try {
-      const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
-      if (Array.isArray(raw)) {
-        stored = raw
-          .filter((e): e is { code: string, char: string } =>
-            !!e && isValidCode(e.code) && typeof e.char === 'string' && e.char.length <= 16)
-          .map(e => ({ code: e.code, char: e.char, label: e.char }))
+type Usage = Record<string, { char: string, count: number }>
+
+/** Lit les compteurs d'usage (validés). Migration douce depuis l'ancien format
+ *  « récents » (array) pour ne pas perdre les emojis déjà utilisés. */
+function loadUsage(): Usage {
+  if (!import.meta.client) return {}
+  const out: Usage = {}
+  try {
+    const raw = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}')
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      for (const [code, v] of Object.entries(raw)) {
+        const e = v as { char?: unknown, count?: unknown }
+        if (isValidCode(code) && typeof e?.char === 'string' && e.char.length <= 16 && typeof e?.count === 'number') {
+          out[code] = { char: e.char, count: Math.max(0, Math.floor(e.count)) }
+        }
       }
-    } catch {
-      // localStorage corrompu/altéré → on retombe sur les défauts.
     }
+  } catch { /* corrompu → vide */ }
+
+  // Reprise de l'ancien format si aucun usage enregistré.
+  if (!Object.keys(out).length) {
+    try {
+      const old = JSON.parse(localStorage.getItem(OLD_RECENT_KEY) || '[]')
+      if (Array.isArray(old)) {
+        old.forEach((e: { code?: unknown, char?: unknown }, i: number) => {
+          if (isValidCode(e?.code) && typeof e?.char === 'string' && e.char.length <= 16) {
+            out[e.code] = { char: e.char, count: old.length - i } // conserve l'ordre
+          }
+        })
+      }
+    } catch { /* ignore */ }
   }
-  const seen = new Set<string>()
+  return out
+}
+
+/** Snapshot de la barre : top usages (desc) puis complété avec les défauts. */
+function buildBar(usage: Usage): EmoteDef[] {
+  const ranked = Object.entries(usage)
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([code, v]) => ({ code, char: v.char, label: v.char }))
   const out: EmoteDef[] = []
-  for (const def of [...stored, ...EMOTES]) {
+  const seen = new Set<string>()
+  for (const def of [...ranked, ...EMOTES]) {
     if (seen.has(def.code)) continue
     seen.add(def.code)
     out.push(def)
-    if (out.length >= RECENT_MAX) break
+    if (out.length >= BAR_BASE) break
   }
   return out
 }
@@ -102,7 +132,9 @@ const LIFETIME = 1100
 export function useEmotes(roomId: string) {
   const supabase = useSupabaseClient()
   const active = ref<FloatingEmote[]>([])
-  const recent = ref<EmoteDef[]>(loadRecent())
+  const usage = loadUsage()
+  // Barre FIGÉE pour la session (ne se réordonne pas quand on tape).
+  const recent = ref<EmoteDef[]>(buildBar(usage))
   let channel: ReturnType<typeof supabase.channel> | null = null
   let seq = 0
 
@@ -124,17 +156,24 @@ export function useEmotes(roomId: string) {
     channel?.send({ type: 'broadcast', event: 'emote', payload: { code } })
   }
 
-  /** Mémorise un emoji utilisé en tête des « récents » (max RECENT_MAX),
-   *  persisté en localStorage ({code, char}), toujours re-validé à la lecture. */
+  /** Comptabilise un usage (persisté). N'A PAS d'effet sur l'ORDRE de la barre
+   *  pendant la session (anti « le bouton bouge quand je spamme »). Seul cas où
+   *  la barre change : un emoji NOUVEAU (pas déjà affiché) est ajouté À LA FIN,
+   *  sans déplacer les boutons existants, pour pouvoir le spammer aussitôt. */
   function pushRecent(code: string, char: string) {
     if (!isValidCode(code)) return
-    const def: EmoteDef = { code, char, label: char }
-    recent.value = [def, ...recent.value.filter(e => e.code !== code)].slice(0, RECENT_MAX)
-    if (import.meta.client) {
-      localStorage.setItem(
-        RECENT_KEY,
-        JSON.stringify(recent.value.map(e => ({ code: e.code, char: e.char })))
-      )
+    const entry = usage[code] ?? { char, count: 0 }
+    entry.char = char
+    entry.count += 1
+    usage[code] = entry
+    if (import.meta.client) localStorage.setItem(USAGE_KEY, JSON.stringify(usage))
+
+    if (!recent.value.some(e => e.code === code)) {
+      const next = [...recent.value, { code, char, label: char }]
+      // Plafond : on ne retire JAMAIS les BAR_BASE premiers (figés) → on retire
+      // le plus ancien emoji ajouté en session si on dépasse.
+      if (next.length > BAR_MAX) next.splice(BAR_BASE, 1)
+      recent.value = next
     }
   }
 

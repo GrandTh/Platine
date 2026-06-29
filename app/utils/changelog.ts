@@ -35,6 +35,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.2.1',
+    date: '2026-06-27',
+    features: [
+      {
+        fr: 'Amélioration de l\'utilisation de la barre de réactions.',
+        en: 'Improved reaction bar experience.'
+      },
+      {
+        fr: 'Amélioration de la gestion des droits.',
+        en: 'Improved permissions management.'
+      }
+    ]
+  },
+  {
     version: '1.2.0',
     date: '2026-06-26',
     features: [

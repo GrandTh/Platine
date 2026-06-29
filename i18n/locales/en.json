@@ -103,6 +103,8 @@
     "autoplayHint": "When the queue is empty, keeps playing popular tracks",
     "muteAria": "Remove add permission",
     "unmuteAria": "Restore add permission",
+    "muteAll": "Remove everyone's add right",
+    "unmuteAll": "Restore everyone's add right",
     "mutedBadge": "Can no longer add tracks",
     "mutedNotice": "The host removed your permission to add tracks."
   }

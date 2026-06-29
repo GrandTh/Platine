@@ -103,6 +103,8 @@
     "autoplayHint": "Quand la file est vide, enchaîne des morceaux populaires",
     "muteAria": "Retirer le droit d'ajouter",
     "unmuteAria": "Rendre le droit d'ajouter",
+    "muteAll": "Retirer le droit d'ajout à tous",
+    "unmuteAll": "Rendre le droit d'ajout à tous",
     "mutedBadge": "Ne peut plus ajouter de morceaux",
     "mutedNotice": "L'hôte t'a retiré le droit d'ajouter des morceaux."
   }
