@@ -30,11 +30,18 @@ const uid = useAnonId()
 // Cycle de vie + config réelle de la room (mode/hôte lus en DB).
 // Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
 const {
-  exists, ready, mode, isHost, playing, togglePlaying,
+  exists, ready, mode, isHost, playing, togglePlaying, setPlaying,
   broadcastSeek, onSeek, currentTrackId, setCurrentTrack,
   shuffleSeed, reshuffle, autoplay, setAutoplay
 } = useRoomLifecycle(roomId.value, uid, wantHost, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
+
+// Lecture/pause depuis la playbar YouTube native : si c'est l'HÔTE, on propage
+// à toute la room (les autres lecteurs + le disque suivent l'état `playing`).
+// `setPlaying` est no-op si l'état ne change pas → pas de boucle de feedback.
+function onPlayerState(isPlaying: boolean) {
+  if (isHost.value) setPlaying(isPlaying)
+}
 
 // Volume LOCAL (0–100) : propre à CE navigateur (via l'API YouTube), n'affecte
 // pas les autres participants. Mémorisé en localStorage.
@@ -704,6 +711,7 @@ async function copyLink() {
       :volume="volume"
       @ended="onTrackEnded"
       @progress="onProgress"
+      @playstate="onPlayerState"
     />
 
     <!-- ───────── Toast de vote pour skip (partagé, tous) ───────── -->

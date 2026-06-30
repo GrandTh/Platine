@@ -17,6 +17,9 @@ const emit = defineEmits<{
   ended: []
   /** Progression émise en continu : { current, duration } en secondes. */
   progress: [payload: { current: number, duration: number }]
+  /** Lecture/pause déclenchée DANS le lecteur (playbar YouTube native) →
+   *  le parent (hôte) propage à la room. true = lecture, false = pause. */
+  playstate: [playing: boolean]
 }>()
 
 const host = ref<HTMLElement | null>(null)
@@ -24,6 +27,12 @@ const clip = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
 let player: YTPlayer | null = null
 let raf = 0
+
+// Lien public YouTube de la vidéo (titre cliquable → conformité III.I.4 : on ne
+// désactive aucun lien et on offre un renvoi vers YouTube via le titre).
+const watchUrl = computed(() =>
+  props.videoId ? `https://www.youtube.com/watch?v=${props.videoId}` : null
+)
 
 const ready = ref(false)
 const fullscreen = ref(false)
@@ -52,9 +61,6 @@ async function enterFullscreen() {
     // certains navigateurs refusent hors interaction : sans effet
   }
 }
-async function exitFullscreen() {
-  if (document.fullscreenElement) await document.exitFullscreen()
-}
 function onFsChange() {
   fullscreen.value = document.fullscreenElement === clip.value
 }
@@ -69,8 +75,9 @@ onMounted(async () => {
     videoId: props.videoId ?? undefined,
     playerVars: {
       autoplay: 1,
-      controls: 0,
-      modestbranding: 1,
+      // controls: 1 → on garde la PLAYBAR YouTube native (conformité API : on ne
+      // remplace/masque pas les attributs YouTube, cf. politique III.C.1).
+      controls: 1,
       rel: 0,
       playsinline: 1,
       mute: props.muted ? 1 : 0
@@ -96,7 +103,12 @@ onMounted(async () => {
       },
       onStateChange: (e: { data: number }) => {
         // Dès que ça joue pour de vrai, plus besoin de l'overlay.
-        if (e.data === YT.PlayerState.PLAYING) needsGesture.value = false
+        if (e.data === YT.PlayerState.PLAYING) {
+          needsGesture.value = false
+          emit('playstate', true)
+        } else if (e.data === YT.PlayerState.PAUSED) {
+          emit('playstate', false)
+        }
         if (e.data === YT.PlayerState.ENDED) emit('ended')
       }
     }
@@ -146,44 +158,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- Vignette : visible en haut à gauche sur desktop/tablette paysage (lg+).
-       Sous lg (mobile + tablette portrait) elle est déportée hors-écran :
-       l'iframe reste vivante (audio), le plein écran refonctionne, et le titre
-       est affiché centré sous le disque par la page. -->
-  <div class="pointer-events-auto absolute top-20 -left-[200vw] w-64 lg:left-10 lg:top-24 lg:w-72">
-    <!-- Clip -->
-    <!-- En mode normal : faux read-only (le calque bloque les clics vers
-         l'iframe, sans rien déclencher). En plein écran natif : le calque
-         devient cliquable pour sortir, et la vidéo remplit l'écran. -->
+  <!-- Vignette : visible partout (desktop ET mobile). Le lecteur YouTube reste
+       PLEINEMENT interactif (playbar, titre, logo cliquables) et la taille est
+       ≥ 200×200 px → conformité API YouTube (RMF III.C.1 + liens III.I.4). -->
+  <div class="pointer-events-auto absolute top-20 left-3 z-20 w-[200px] lg:left-10 lg:top-24">
+    <!-- Clip carré 200×200 (taille mini conforme à l'API YouTube). La vidéo 16:9
+         est « boxée » dedans. Pas de bordure : le contenu reste à 200px pile
+         (une bordure ramènerait l'iframe à 198 px < 200). -->
     <div
       ref="clip"
       class="relative overflow-hidden bg-black shadow-2xl"
       :class="fullscreen
         ? 'flex items-center justify-center'
-        : 'aspect-video rounded-2xl border border-white/15'"
+        : 'size-[200px] rounded-2xl'"
     >
       <!-- Conteneur monté par l'API YouTube (remplacé par une iframe).
-           pointer-events-none : YouTube ne reçoit jamais la souris → pas
-           d'overlay de lecture/pause au survol. -->
-      <div
-        class="pointer-events-none"
-        :class="fullscreen ? 'aspect-video h-full max-h-full w-full max-w-full' : 'size-full'"
-      >
+           INTERACTIF : on ne bloque plus les clics → la playbar et les liens
+           YouTube (titre, logo, « Regarder sur YouTube ») fonctionnent. -->
+      <div :class="fullscreen ? 'aspect-video h-full max-h-full w-full max-w-full' : 'size-full'">
         <div
           ref="host"
           class="size-full"
         />
       </div>
-
-      <!-- Calque : bloque les clics vers YouTube. En plein écran, un clic sort. -->
-      <button
-        type="button"
-        class="absolute inset-0 z-10 w-full bg-transparent"
-        :class="fullscreen ? 'cursor-zoom-out' : 'cursor-default'"
-        :aria-label="fullscreen ? 'Quitter le plein écran' : 'Clip'"
-        :tabindex="fullscreen ? 0 : -1"
-        @click="fullscreen && exitFullscreen()"
-      />
 
       <!-- Overlay "Rejoindre l'écoute" : le navigateur bloque l'autoplay
            avec son sans interaction. Le clic débloque le son + lance. -->
@@ -201,11 +198,15 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <!-- Infos (titre/artiste) — masquées en plein écran -->
-    <div
-      v-if="!fullscreen"
+    <!-- Infos (titre/artiste) — masquées en plein écran. Le TITRE est un lien
+         vers la vidéo sur YouTube (conformité III.I.4). -->
+    <a
+      v-if="!fullscreen && watchUrl"
       ref="infoRef"
-      class="mt-3 text-white"
+      :href="watchUrl"
+      target="_blank"
+      rel="noopener"
+      class="mt-3 block text-white transition hover:opacity-90"
     >
       <VariableProximity
         v-if="title"
@@ -216,14 +217,14 @@ onBeforeUnmount(() => {
         :container-ref="infoRef"
         :radius="90"
         falloff="gaussian"
-        class-name="block truncate text-sm font-variable"
+        class-name="block truncate text-sm font-variable hover:underline"
       />
-      <p
+      <span
         v-if="artist"
-        class="truncate text-xs text-white/55"
+        class="block truncate text-xs text-white/55"
       >
         {{ artist }}
-      </p>
-    </div>
+      </span>
+    </a>
   </div>
 </template>

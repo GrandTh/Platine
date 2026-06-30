@@ -35,6 +35,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.2.2',
+    date: '2026-06-30',
+    features: [
+      {
+        fr: 'Mise en conformité du lecteur vidéo avec les règles de YouTube.',
+        en: 'Updated the video player to comply with YouTube\'s policies.'
+      }
+    ]
+  },
+  {
     version: '1.2.1',
     date: '2026-06-27',
     features: [

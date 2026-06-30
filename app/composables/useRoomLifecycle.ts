@@ -85,6 +85,15 @@ export function useRoomLifecycle(
     await pushState({ playing: next })
   }
 
+  /** Force un état lecture précis (hôte uniquement) — utilisé quand l'hôte
+   *  joue/met en pause via la playbar YouTube native. No-op si déjà à cet état
+   *  (évite toute boucle de feedback avec le watch du player). Propagé Realtime. */
+  async function setPlaying(value: boolean) {
+    if (!isHost.value || playing.value === value) return
+    playing.value = value // optimiste
+    await pushState({ playing: value })
+  }
+
   /** Définit le morceau en cours (hôte uniquement). Propagé via Realtime. */
   async function setCurrentTrack(trackId: string | null) {
     if (!isHost.value) return
@@ -162,7 +171,7 @@ export function useRoomLifecycle(
 
   return {
     exists, ready, mode: roomMode, isHost, hostId,
-    playing, togglePlaying, broadcastSeek, onSeek,
+    playing, togglePlaying, setPlaying, broadcastSeek, onSeek,
     currentTrackId, setCurrentTrack, shuffleSeed, reshuffle,
     autoplay, setAutoplay
   }

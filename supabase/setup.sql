@@ -76,6 +76,20 @@ as $$
   where last_active < now() - interval '5 minutes';
 $$;
 
+-- Conformité API YouTube (III.E.4) : purge des métadonnées YouTube agrégées
+-- (popular_tracks) non rafraîchies depuis 30 jours. À planifier en cron quotidien
+-- (cf. migration 23) :
+--   select cron.schedule('platine-popular-purge', '0 3 * * *',
+--     $$ select public.cleanup_old_popular(); $$);
+create or replace function public.cleanup_old_popular()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.popular_tracks where last_added_at < now() - interval '30 days';
+$$;
+
 -- RLS (prototype) : accès anon total.
 alter table public.rooms  enable row level security;
 alter table public.tracks enable row level security;
