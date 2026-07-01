@@ -266,6 +266,23 @@ on conflict (playlist_id) do nothing;
 
 
 -- ============================================================
+--  8bis) ANNONCES ADMIN — « god mode » (migration 24)
+-- ============================================================
+
+create table if not exists public.announcements (
+  id        uuid primary key default gen_random_uuid(),
+  room_id   text not null references public.rooms (id) on delete cascade,
+  message   text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists announcements_room_idx on public.announcements (room_id, created_at desc);
+alter publication supabase_realtime add table public.announcements;
+alter table public.announcements enable row level security;
+-- Lecture anon (Realtime) ; écriture RÉSERVÉE au service role (endpoint admin).
+create policy "announcements: anon read" on public.announcements for select using (true);
+
+
+-- ============================================================
 --  9) RATE LIMIT — anti-abus recherche (migration 13)
 -- ============================================================
 

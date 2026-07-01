@@ -77,6 +77,45 @@ async function logout() {
   await router.push('/admin/login')
 }
 
+// --- Actions de modération (toutes derrière requireAdmin côté serveur) ---
+const acting = ref(false)
+const announceMsg = ref('')
+
+async function adminPost(url: string, body: Record<string, unknown>) {
+  acting.value = true
+  try {
+    await $fetch(url, { method: 'POST', body })
+  } catch {
+    // best-effort : on resynchronise quoi qu'il arrive
+  } finally {
+    acting.value = false
+    await loadOverview()
+  }
+}
+function skipTrack() {
+  if (selectedId.value) adminPost('/api/admin/room/skip', { roomId: selectedId.value })
+}
+function setRoomPlaying(playing: boolean) {
+  if (selectedId.value) adminPost('/api/admin/room/playing', { roomId: selectedId.value, playing })
+}
+function removeTrack(trackId: string) {
+  adminPost('/api/admin/track/remove', { trackId })
+}
+function moderateMember(uid: string, muted: boolean) {
+  if (selectedId.value) adminPost('/api/admin/member/moderate', { roomId: selectedId.value, uid, muted })
+}
+async function deleteRoom() {
+  if (!selectedId.value) return
+  if (!confirm(`Supprimer définitivement la room ${selectedId.value} ?`)) return
+  await adminPost('/api/admin/room/delete', { roomId: selectedId.value })
+}
+async function sendAnnounce() {
+  const message = announceMsg.value.trim()
+  if (!selectedId.value || !message) return
+  announceMsg.value = ''
+  await adminPost('/api/admin/announce', { roomId: selectedId.value, message })
+}
+
 // Rafraîchissement : Realtime (live) + poll de secours toutes les 30 s.
 let timer: ReturnType<typeof setInterval> | null = null
 let channel: ReturnType<typeof supabase.channel> | null = null
@@ -311,6 +350,49 @@ function shortUid(uid: string) {
             · Créateur : <span class="font-mono">{{ detail.ownerId ? shortUid(detail.ownerId) : '—' }}</span>
           </p>
 
+          <!-- Actions admin sur la room -->
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              class="cursor-pointer rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+              :disabled="acting"
+              @click="setRoomPlaying(!detail.playing)"
+            >
+              {{ detail.playing ? '⏸ Pause' : '▶ Lecture' }}
+            </button>
+            <button
+              class="cursor-pointer rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+              :disabled="acting || !detail.tracks.length"
+              @click="skipTrack"
+            >
+              ⏭ Skip
+            </button>
+            <button
+              class="cursor-pointer rounded-lg border border-red-500/30 px-3 py-1.5 text-xs text-red-300 transition hover:bg-red-500/15 disabled:opacity-50"
+              :disabled="acting"
+              @click="deleteRoom"
+            >
+              🗑 Supprimer la room
+            </button>
+          </div>
+
+          <!-- Annonce « god mode » poussée dans la room -->
+          <div class="mt-2 flex gap-2">
+            <input
+              v-model="announceMsg"
+              maxlength="200"
+              placeholder="Annonce god mode…"
+              class="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs outline-none placeholder:text-white/30 focus:border-fuchsia-400/60"
+              @keyup.enter="sendAnnounce"
+            >
+            <button
+              class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-fuchsia-500 to-violet-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              :disabled="acting || !announceMsg.trim()"
+              @click="sendAnnounce"
+            >
+              Envoyer
+            </button>
+          </div>
+
           <!-- Membres -->
           <h3 class="mt-4 mb-2 text-sm font-semibold text-white/70">
             Membres ({{ detail.members.length }})
@@ -332,6 +414,20 @@ function shortUid(uid: string) {
                 class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300"
               >muté</span>
               <span class="ml-auto text-xs text-white/40">{{ fmtAgo(m.lastSeen) }}</span>
+              <!-- Muter / démuter (sauf l'hôte) -->
+              <button
+                v-if="m.uid !== detail.hostId"
+                class="shrink-0 cursor-pointer rounded p-1 transition disabled:opacity-50"
+                :class="m.muted ? 'text-amber-400 hover:bg-amber-500/15' : 'text-white/40 hover:bg-white/10 hover:text-white'"
+                :disabled="acting"
+                :title="m.muted ? 'Rendre le droit d\'ajouter' : 'Retirer le droit d\'ajouter'"
+                @click="moderateMember(m.uid, !m.muted)"
+              >
+                <UIcon
+                  :name="m.muted ? 'i-lucide-circle-slash' : 'i-lucide-ban'"
+                  class="block size-4"
+                />
+              </button>
             </li>
           </ul>
 
@@ -366,6 +462,18 @@ function shortUid(uid: string) {
               <span class="shrink-0 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-xs font-semibold text-fuchsia-300">
                 {{ tk.votes }} ▲
               </span>
+              <!-- Retirer le morceau -->
+              <button
+                class="shrink-0 cursor-pointer rounded p-1 text-white/40 transition hover:bg-red-500/15 hover:text-red-300 disabled:opacity-50"
+                :disabled="acting"
+                title="Retirer ce morceau"
+                @click="removeTrack(tk.id)"
+              >
+                <UIcon
+                  name="i-lucide-x"
+                  class="block size-4"
+                />
+              </button>
             </li>
           </ul>
         </div>

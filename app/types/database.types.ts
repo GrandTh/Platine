@@ -250,6 +250,27 @@ export type Database = {
         }
         Relationships: []
       }
+      announcements: {
+        Row: {
+          id: string
+          room_id: string
+          message: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          room_id: string
+          message: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          room_id?: string
+          message?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {

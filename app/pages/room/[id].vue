@@ -126,6 +126,9 @@ const {
 // `recentEmotes` = barre des récents (par utilisateur) ; le sélecteur « … »
 // donne accès à tous les emojis.
 const { active: emotes, send: sendEmote, recent: recentEmotes, pushRecent } = useEmotes(roomId.value)
+
+// Annonce admin (« god mode ») : overlay plein écran reçu en temps réel.
+const { announcement } = useAnnouncements(roomId.value)
 const emotePickerOpen = ref(false)
 
 // Envoie un emoji ET comptabilise son usage (la barre est classée par usage,
@@ -1701,10 +1704,39 @@ async function copyLink() {
       @exit="tvMode = false"
       @seek="onSeekRatio"
     />
+
+    <!-- Annonce admin (« god mode ») : overlay plein écran qui assombrit tout,
+         ~4,5 s puis fondu. Message envoyé par l'admin (infalsifiable, cf. table
+         announcements RLS). -->
+    <Transition name="announce">
+      <div
+        v-if="announcement"
+        class="fixed inset-0 z-[90] flex items-center justify-center bg-black/85 p-8 backdrop-blur-md"
+      >
+        <p class="max-w-3xl text-center text-2xl font-bold leading-snug text-white md:text-4xl">
+          {{ announcement }}
+        </p>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
+/* Annonce admin : fondu + léger zoom à l'entrée/sortie. */
+.announce-enter-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.announce-leave-active {
+  transition: opacity 0.6s ease;
+}
+.announce-enter-from {
+  opacity: 0;
+  transform: scale(1.04);
+}
+.announce-leave-to {
+  opacity: 0;
+}
+
 /* Repli de la sidebar (desktop ≥ lg). On utilise `transform` (et non les
    utilitaires translate de Tailwind v4, qui passent par la propriété
    `translate` et entrent en conflit avec lg:!translate-y-0). Animé par
