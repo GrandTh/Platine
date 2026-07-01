@@ -5,23 +5,7 @@
  * est inchangée par rapport au prototype BroadcastChannel : l'UI ne bouge pas.
  */
 import type { Ref } from 'vue'
-
-// Rang pseudo-aléatoire déterministe (FNV-1a) à partir d'un id + seed partagé.
-// Même seed → même ordre pour tous les clients.
-function seededRank(id: string, seed: string): number {
-  let h = 2166136261
-  const s = id + seed
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-// Retire le « - Topic » des artistes auto-générés YouTube (données déjà stockées).
-function stripTopic(s: string): string {
-  return s.replace(/\s*-\s*Topic\s*$/i, '').trim()
-}
+// seededRank + stripTopic sont partagés client/serveur (auto-importés depuis shared/utils).
 
 interface DbTrack {
   id: string

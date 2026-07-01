@@ -6,17 +6,7 @@
  */
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database } from '~/types/database.types'
-
-// Rang pseudo-aléatoire déterministe (FNV-1a) — identique à useQueue/seededRank.
-function seededRank(id: string, seed: string): number {
-  let h = 2166136261
-  const s = id + seed
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
+// seededRank partagé client/serveur → shared/utils/queue.ts (auto-importé).
 
 export default defineEventHandler(async (event): Promise<{ ok: true, next: string | null }> => {
   await requireAdmin(event)

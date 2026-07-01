@@ -5,8 +5,9 @@ import type { Member } from '~/composables/useMembers'
  * Vote pour skip le morceau en cours, en temps réel via Supabase.
  *
  * - Un vote par personne et par morceau (table skip_votes).
- * - Quorum = ceil(50% des INVITÉS présents) — l'hôte est exclu (il a son
- *   skip manuel) ; minimum 1.
+ * - Quorum = ceil(50% des membres présents, HÔTE INCLUS dans le total) ;
+ *   minimum 1. L'hôte compte dans le total mais ne vote pas (il a son skip
+ *   manuel).
  * - Quand le quorum est atteint, c'est l'HÔTE qui exécute le skip (autorité
  *   unique) via le callback onQuorum → évite les doubles skips.
  * - Reset automatique quand le morceau change (les votes du morceau retiré

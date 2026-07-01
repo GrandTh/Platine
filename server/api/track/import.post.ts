@@ -43,7 +43,7 @@ export default defineEventHandler(async (event): Promise<{ added: number }> => {
   const seen = new Set(existingKeys)
   const toInsert = list
     .filter(t => t.externalId && t.title)
-    .map(t => ({ ...t, source: t.source === 'spotify' ? 'spotify' : 'youtube' as const }))
+    .map(t => ({ ...t, source: (t.source === 'spotify' ? 'spotify' : 'youtube') as 'youtube' | 'spotify' }))
     .filter((t) => {
       const k = `${t.source}:${t.externalId}`
       if (seen.has(k)) return false

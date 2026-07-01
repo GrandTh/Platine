@@ -7,11 +7,14 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database } from '~/types/database.types'
 
-const LIMITS: Record<string, RateWindow[]> = {
+// `satisfies` (plutôt qu'une annotation) : on garde la contrainte de type tout
+// en conservant les clés littérales → LIMITS.join est RateWindow[], pas
+// `RateWindow[] | undefined` (accès indexé sûr).
+const LIMITS = {
   join: [{ tag: '1m', ttl: 60, limit: 30 }, { tag: '1h', ttl: 3600, limit: 200 }],
   heartbeat: [{ tag: '1m', ttl: 60, limit: 60 }],
   rename: [{ tag: '1m', ttl: 60, limit: 15 }]
-}
+} satisfies Record<string, RateWindow[]>
 
 // On ne rafraichit `rooms.last_active` (et ne reconcilie l'hote) qu'au plus une
 // fois par room toutes les 60 s : le keep-alive n'a besoin d'etre frais qu'a

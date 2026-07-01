@@ -6,13 +6,7 @@
  * sont immuables → on les stocke (search_cache, tracks) pour ne pas re-payer.
  */
 
-/**
- * Retire le suffixe « - Topic » des noms de chaîne auto-générées par YouTube
- * (ex. « Teddy Swims - Topic » → « Teddy Swims »).
- */
-export function stripTopic(s: string): string {
-  return s.replace(/\s*-\s*Topic\s*$/i, '').trim()
-}
+// stripTopic est désormais partagé client/serveur → shared/utils/youtube.ts (auto-importé).
 
 /** Parse une durée ISO 8601 (ex. "PT1H2M3S") en secondes. */
 export function parseIsoDuration(iso?: string): number | undefined {
