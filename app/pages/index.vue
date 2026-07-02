@@ -120,6 +120,15 @@ function closeWhatsNew(dontShowAgain: boolean) {
         {{ t('footer.whatsNew') }}
       </NuxtLink>
       <span class="text-white/20">·</span>
+      <a
+        href="https://ko-fi.com/platine"
+        target="_blank"
+        rel="noopener"
+        class="transition hover:text-white/70"
+      >
+        {{ t('footer.support') }}
+      </a>
+      <span class="text-white/20">·</span>
       <span class="text-white/30">v{{ APP_VERSION }}</span>
     </footer>
 

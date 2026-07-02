@@ -35,6 +35,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.3.0',
+    date: '2026-07-02',
+    features: [
+      {
+        fr: 'Vous pouvez désormais soutenir Platine avec un petit café ☕ — un lien depuis l\'accueil, pour aider à garder l\'app gratuite et sans pub.',
+        en: 'You can now support Platine with a small coffee ☕ — a link from the home page, to help keep the app free and ad-free.'
+      }
+    ],
+    fixes: true
+  },
+  {
     version: '1.2.2',
     date: '2026-06-30',
     features: [

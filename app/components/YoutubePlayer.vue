@@ -86,7 +86,8 @@ onMounted(async () => {
       onReady: (e: { target: YTPlayer }) => {
         ready.value = true
         e.target.setVolume(props.volume ?? 100)
-        if (props.muted) e.target.mute()
+        // Volume 0 ou mode speaker (invité) → on coupe réellement le son.
+        if (props.muted || (props.volume ?? 100) === 0) e.target.mute()
         else e.target.unMute()
         if (props.playing !== false) {
           e.target.playVideo()
@@ -126,22 +127,35 @@ function resume() {
   needsGesture.value = false
 }
 
+/** (Ré)applique le volume LOCAL + l'état muet au player. Volume 0 → vrai
+ *  `mute()` (setVolume(0) seul n'est pas toujours respecté après un
+ *  rechargement de vidéo → le son « remontait » au changement de morceau).
+ *  Centralisé pour être rejoué à chaque `loadVideoById`. */
+function applyVolume() {
+  if (!player || !ready.value) return
+  const v = props.volume ?? 100
+  player.setVolume(v)
+  if (props.muted || v === 0) player.mute()
+  else player.unMute()
+}
+
 watch(() => props.videoId, (id) => {
   if (player && ready.value && id) {
     player.loadVideoById(id)
     emit('progress', { current: 0, duration: 0 })
+    // loadVideoById relance seul depuis l'état ENDED (fin naturelle), mais quand
+    // on CHANGE de morceau en pleine lecture (skip) l'autoplay est souvent
+    // ignoré → on force explicitement l'état de lecture voulu.
+    if (props.playing === false) player.pauseVideo()
+    else player.playVideo()
+    // Le rechargement réinitialise le volume côté YouTube → on le ré-applique.
+    applyVolume()
   }
 })
 
-watch(() => props.muted, (m) => {
-  if (!player || !ready.value) return
-  if (m) player.mute()
-  else player.unMute()
-})
+watch(() => props.muted, () => applyVolume())
 
-watch(() => props.volume, (v) => {
-  if (player && ready.value && typeof v === 'number') player.setVolume(v)
-})
+watch(() => props.volume, () => applyVolume())
 
 watch(() => props.playing, (p) => {
   if (!player || !ready.value) return
