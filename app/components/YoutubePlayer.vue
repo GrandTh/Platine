@@ -220,11 +220,13 @@ onBeforeUnmount(() => {
       rel="noopener"
       class="mt-3 block text-white transition hover:opacity-90"
     >
-      <!-- Titre affiché TEL QUEL, sans restylage/animation (conformité API
-           YouTube III.C.1 : ne pas remplacer/altérer l'attribut Titre). -->
+      <!-- Titre affiché TEL QUEL et EN ENTIER, sur UNE seule ligne : ni tronqué,
+           ni retour à la ligne, ni animation (conformité API YouTube III.C.1).
+           Largeur = le contenu (w-max) → un titre plus long que le player déborde
+           simplement vers la droite, sur le fond. -->
       <span
         v-if="title"
-        class="block truncate text-sm font-semibold hover:underline"
+        class="block w-max whitespace-nowrap text-sm font-semibold hover:underline"
       >
         {{ title }}
       </span>
