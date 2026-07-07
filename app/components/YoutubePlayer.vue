@@ -24,7 +24,6 @@ const emit = defineEmits<{
 
 const host = ref<HTMLElement | null>(null)
 const clip = ref<HTMLElement | null>(null)
-const infoRef = ref<HTMLElement | null>(null)
 let player: YTPlayer | null = null
 let raf = 0
 
@@ -216,23 +215,19 @@ onBeforeUnmount(() => {
          vers la vidéo sur YouTube (conformité III.I.4). -->
     <a
       v-if="!fullscreen && watchUrl"
-      ref="infoRef"
       :href="watchUrl"
       target="_blank"
       rel="noopener"
       class="mt-3 block text-white transition hover:opacity-90"
     >
-      <VariableProximity
+      <!-- Titre affiché TEL QUEL, sans restylage/animation (conformité API
+           YouTube III.C.1 : ne pas remplacer/altérer l'attribut Titre). -->
+      <span
         v-if="title"
-        :key="title"
-        :label="title"
-        from-font-variation-settings="'wght' 500"
-        to-font-variation-settings="'wght' 900"
-        :container-ref="infoRef"
-        :radius="90"
-        falloff="gaussian"
-        class-name="block truncate text-sm font-variable hover:underline"
-      />
+        class="block truncate text-sm font-semibold hover:underline"
+      >
+        {{ title }}
+      </span>
       <span
         v-if="artist"
         class="block truncate text-xs text-white/55"
