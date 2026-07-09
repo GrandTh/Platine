@@ -30,11 +30,16 @@ const uid = useAnonId()
 // Cycle de vie + config réelle de la room (mode/hôte lus en DB).
 // Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
 const {
-  exists, ready, mode, isHost, playing, togglePlaying, setPlaying,
+  exists, ready, rateLimited, mode, isHost, playing, togglePlaying, setPlaying,
   broadcastSeek, onSeek, currentTrackId, setCurrentTrack,
   shuffleSeed, reshuffle, autoplay, setAutoplay
 } = useRoomLifecycle(roomId.value, uid, wantHost, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
+
+// Réessayer une création refusée par le rate limit (après avoir patienté).
+function retryRoom() {
+  if (import.meta.client) window.location.reload()
+}
 
 // Lecture/pause depuis la playbar YouTube native : si c'est l'HÔTE, on propage
 // à toute la room (les autres lecteurs + le disque suivent l'état `playing`).
@@ -556,23 +561,32 @@ async function copyLink() {
 </script>
 
 <template>
-  <!-- Room introuvable (invité arrivant sur une room fermée/expirée) -->
+  <!-- Room introuvable (invité sur une room fermée/expirée), OU création refusée
+       pour cause de rate limit (trop de rooms créées d'affilée). -->
   <div
     v-if="ready && !exists"
     class="grid h-dvh w-full place-items-center bg-[#070510] px-6 text-center text-white"
   >
     <div>
       <UIcon
-        name="i-lucide-disc-3"
+        :name="rateLimited ? 'i-lucide-timer' : 'i-lucide-disc-3'"
         class="mx-auto size-12 text-white/30"
       />
       <h1 class="mt-4 text-2xl font-bold">
-        {{ t('room.notFoundTitle') }}
+        {{ rateLimited ? t('room.rateLimitTitle') : t('room.notFoundTitle') }}
       </h1>
       <p class="mt-2 text-white/55">
-        {{ t('room.notFoundText') }}
+        {{ rateLimited ? t('room.rateLimitText') : t('room.notFoundText') }}
       </p>
+      <button
+        v-if="rateLimited"
+        class="mt-6 inline-block cursor-pointer rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-6 py-3 font-semibold"
+        @click="retryRoom"
+      >
+        {{ t('room.retry') }}
+      </button>
       <NuxtLink
+        v-else
         to="/"
         class="mt-6 inline-block rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-6 py-3 font-semibold"
       >

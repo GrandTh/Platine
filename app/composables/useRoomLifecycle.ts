@@ -26,6 +26,9 @@ export function useRoomLifecycle(
   const supabase = useSupabaseClient()
   const exists = ref(true)
   const ready = ref(false)
+  // Création refusée pour cause de rate limit (trop de rooms créées d'affilée) :
+  // distinct de « room introuvable » → message dédié côté UI.
+  const rateLimited = ref(false)
   const roomMode = ref<RoomMode>(mode)
   const isHost = ref(false)
   const hostId = ref<string | null>(null)
@@ -45,8 +48,13 @@ export function useRoomLifecycle(
         method: 'POST',
         body: { roomId, uid, mode }
       })
-    } catch {
-      // silencieux : exists=false sera géré par loadRoom.
+    } catch (e) {
+      // 429 = rate limit création (trop de rooms d'affilée) → état dédié pour
+      // afficher un message clair (au lieu de « room introuvable »).
+      const status = (e as { statusCode?: number, status?: number })?.statusCode
+        ?? (e as { status?: number })?.status
+      if (status === 429) rateLimited.value = true
+      // sinon silencieux : exists=false sera géré par loadRoom.
     }
   }
 
@@ -170,7 +178,7 @@ export function useRoomLifecycle(
   })
 
   return {
-    exists, ready, mode: roomMode, isHost, hostId,
+    exists, ready, rateLimited, mode: roomMode, isHost, hostId,
     playing, togglePlaying, setPlaying, broadcastSeek, onSeek,
     currentTrackId, setCurrentTrack, shuffleSeed, reshuffle,
     autoplay, setAutoplay

@@ -12,10 +12,11 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database } from '~/types/database.types'
 
-// Seuils stricts par IP, sur les VRAIES créations (un hôte en crée ~1).
+// Seuils par IP, sur les VRAIES créations (un hôte en crée ~1). Assez larges pour
+// un power user qui enchaîne quelques rooms, assez stricts pour borner le spam.
 const LIMITS = [
-  { tag: '1m', ttl: 60, limit: 3 },
-  { tag: '1h', ttl: 3600, limit: 15 }
+  { tag: '1m', ttl: 60, limit: 5 },
+  { tag: '1h', ttl: 3600, limit: 30 }
 ] as const
 
 export default defineEventHandler(async (event) => {

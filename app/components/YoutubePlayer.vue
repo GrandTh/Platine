@@ -26,6 +26,9 @@ const host = ref<HTMLElement | null>(null)
 const clip = ref<HTMLElement | null>(null)
 let player: YTPlayer | null = null
 let raf = 0
+// Horodatage du dernier changement de vidéo : sert à ignorer la PAUSE
+// transitoire émise par YouTube pendant un skip (cf. onStateChange).
+let switchedAt = 0
 
 // Lien public YouTube de la vidéo (titre cliquable → conformité III.I.4 : on ne
 // désactive aucun lien et on offre un renvoi vers YouTube via le titre).
@@ -107,7 +110,11 @@ onMounted(async () => {
           needsGesture.value = false
           emit('playstate', true)
         } else if (e.data === YT.PlayerState.PAUSED) {
-          emit('playstate', false)
+          // Ignore la PAUSE TRANSITOIRE émise juste après un changement de vidéo
+          // (skip) : sans ce garde, elle se propageait en setPlaying(false) et le
+          // morceau suivant restait en pause. Une vraie pause utilisateur (via la
+          // playbar), qui arrive bien après le switch, passe normalement.
+          if (Date.now() - switchedAt > 1500) emit('playstate', false)
         }
         if (e.data === YT.PlayerState.ENDED) emit('ended')
       }
@@ -140,6 +147,7 @@ function applyVolume() {
 
 watch(() => props.videoId, (id) => {
   if (player && ready.value && id) {
+    switchedAt = Date.now() // fenêtre pour ignorer la pause transitoire du switch
     player.loadVideoById(id)
     emit('progress', { current: 0, duration: 0 })
     // loadVideoById relance seul depuis l'état ENDED (fin naturelle), mais quand
