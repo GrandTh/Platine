@@ -5,7 +5,7 @@
  * morceaux à droite. Données via /api/admin/* (protégés par requireAdmin).
  * Mises à jour en **temps réel** (Realtime Supabase) + poll de secours.
  */
-import type { AdminRoom, AdminRoomDetail, AdminStats, AdminTopTrack } from '~/types/admin'
+import type { AdminRateLimit, AdminRoom, AdminRoomDetail, AdminStats, AdminTopTrack } from '~/types/admin'
 
 definePageMeta({ middleware: 'admin' })
 
@@ -15,6 +15,7 @@ const router = useRouter()
 const rooms = ref<AdminRoom[]>([])
 const stats = ref<AdminStats | null>(null)
 const topTracks = ref<AdminTopTrack[]>([])
+const rateLimits = ref<AdminRateLimit[]>([])
 const loading = ref(true)
 const selectedId = ref<string | null>(null)
 const detail = ref<AdminRoomDetail | null>(null)
@@ -34,10 +35,15 @@ const filteredRooms = computed(() => {
 
 async function loadOverview() {
   try {
-    const data = await $fetch('/api/admin/overview')
+    const [data, rl] = await Promise.all([
+      $fetch('/api/admin/overview'),
+      // Best-effort : une erreur ici ne doit pas déconnecter le dashboard.
+      $fetch('/api/admin/ratelimits').catch(() => rateLimits.value)
+    ])
     rooms.value = data.rooms
     stats.value = data.stats
     topTracks.value = data.topTracks
+    rateLimits.value = rl
     // Rafraîchit / ferme le détail ouvert selon qu'il existe encore.
     if (selectedId.value) {
       if (!data.rooms.some(r => r.id === selectedId.value)) {
@@ -165,6 +171,19 @@ function fmtDuration(sec: number | null) {
 }
 function shortUid(uid: string) {
   return uid.slice(0, 8)
+}
+
+// --- Rate limit : compte à rebours live (basé sur `now`, tick 5 s) ---
+function secsUntil(iso: string) {
+  return Math.max(0, Math.round((new Date(iso).getTime() - now.value) / 1000))
+}
+// Une IP est « libérée » quand sa fenêtre qui expire le plus tard est passée.
+function freeIn(rl: AdminRateLimit) {
+  return Math.max(...rl.blocks.map(b => secsUntil(b.expiresAt)))
+}
+function fmtCountdown(sec: number) {
+  const m = Math.floor(sec / 60)
+  return `${m}:${(sec % 60).toString().padStart(2, '0')}`
 }
 </script>
 
@@ -314,6 +333,48 @@ function shortUid(uid: string) {
             </li>
           </ul>
         </section>
+
+        <!-- Rate limit : IP actuellement bloquées + temps restant -->
+        <section class="rounded-2xl border border-white/10 bg-white/5">
+          <div class="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
+            <span class="text-sm font-semibold text-white/70">Rate limit</span>
+            <span
+              v-if="rateLimits.length"
+              class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300"
+            >{{ rateLimits.length }}</span>
+          </div>
+          <div
+            v-if="!rateLimits.length"
+            class="p-6 text-center text-sm text-white/40"
+          >
+            Aucune IP limitée.
+          </div>
+          <ul
+            v-else
+            class="divide-y divide-white/5"
+          >
+            <li
+              v-for="rl in rateLimits"
+              :key="rl.ip"
+              class="px-4 py-2.5"
+            >
+              <div class="flex items-center gap-2">
+                <span class="min-w-0 flex-1 truncate font-mono text-xs">{{ rl.ip }}</span>
+                <span class="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-300">
+                  libérée dans {{ fmtCountdown(freeIn(rl)) }}
+                </span>
+              </div>
+              <div class="mt-1 flex flex-wrap gap-1">
+                <span
+                  v-for="(b, i) in rl.blocks"
+                  :key="i"
+                  class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-white/50"
+                  :title="`${b.count} / ${b.limit} sur ${b.window}`"
+                >{{ b.action }} · {{ b.window }}</span>
+              </div>
+            </li>
+          </ul>
+        </section>
       </div>
 
       <!-- Détail room -->
@@ -352,6 +413,14 @@ function shortUid(uid: string) {
 
           <!-- Actions admin sur la room -->
           <div class="mt-3 flex flex-wrap gap-2">
+            <a
+              :href="`/room/${detail.id}`"
+              target="_blank"
+              rel="noopener"
+              class="cursor-pointer rounded-lg border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 transition hover:bg-emerald-500/15"
+            >
+              ↗ Rejoindre la room
+            </a>
             <button
               class="cursor-pointer rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/10 disabled:opacity-50"
               :disabled="acting"

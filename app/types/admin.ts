@@ -38,6 +38,26 @@ export interface AdminOverview {
   topTracks: AdminTopTrack[]
 }
 
+/** Une fenêtre de rate limit actuellement dépassée pour une IP. */
+export interface AdminRateBlock {
+  /** Action limitée (ex. « room », « vote », « search »). */
+  action: string
+  /** Fenêtre (ex. « 1m », « 1h », « 10s »). */
+  window: string
+  /** Nombre de tentatives sur la fenêtre. */
+  count: number
+  /** Plafond de la fenêtre. */
+  limit: number
+  /** Fin de la fenêtre (ISO) → compte à rebours côté client. */
+  expiresAt: string
+}
+
+/** Une IP actuellement rate-limitée (au moins une fenêtre dépassée). */
+export interface AdminRateLimit {
+  ip: string
+  blocks: AdminRateBlock[]
+}
+
 export interface AdminMember {
   uid: string
   name: string | null

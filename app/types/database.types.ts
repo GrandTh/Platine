@@ -199,6 +199,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit: {
+        Row: {
+          bucket: string
+          count: number
+          expires_at: string
+        }
+        Insert: {
+          bucket: string
+          count?: number
+          expires_at: string
+        }
+        Update: {
+          bucket?: string
+          count?: number
+          expires_at?: string
+        }
+        Relationships: []
+      }
       playlist_cache: {
         Row: {
           playlist_id: string
