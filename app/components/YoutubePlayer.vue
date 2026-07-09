@@ -172,18 +172,19 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- Vignette : visible partout (desktop ET mobile). Le lecteur YouTube reste
-       PLEINEMENT interactif (playbar, titre, logo cliquables) et la taille est
-       ≥ 200×200 px → conformité API YouTube (RMF III.C.1 + liens III.I.4). -->
-  <div class="pointer-events-auto absolute top-20 left-3 z-20 w-[200px] lg:left-10 lg:top-24">
-    <!-- Clip carré 200×200 (taille mini conforme à l'API YouTube). La vidéo 16:9
-         est « boxée » dedans. Pas de bordure : le contenu reste à 200px pile
-         (une bordure ramènerait l'iframe à 198 px < 200). -->
+       PLEINEMENT interactif (playbar, titre, logo cliquables). -->
+  <div class="pointer-events-auto absolute top-20 left-3 z-20 w-[400px] max-w-[calc(100vw-1.5rem)] lg:left-10 lg:top-24">
+    <!-- Player 16:9 (~400×225) : format et taille où YouTube AFFICHE son TITRE
+         natif en haut du lecteur (conformité API YouTube III.C.1 : ne pas
+         obscurcir l'attribution/le titre). Un carré 200×200 réduisait le chrome
+         et masquait le titre. La vidéo 16:9 remplit le clip pile (pas de bord
+         noir), largeur bornée au viewport pour le mobile. -->
     <div
       ref="clip"
       class="relative overflow-hidden bg-black shadow-2xl"
       :class="fullscreen
         ? 'flex items-center justify-center'
-        : 'size-[200px] rounded-2xl'"
+        : 'aspect-video w-full rounded-2xl'"
     >
       <!-- Conteneur monté par l'API YouTube (remplacé par une iframe).
            INTERACTIF : on ne bloque plus les clics → la playbar et les liens
