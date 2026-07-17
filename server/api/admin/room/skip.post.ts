@@ -44,7 +44,13 @@ export default defineEventHandler(async (event): Promise<{ ok: true, next: strin
   const next = sorted.find(t => t.id !== current)?.id ?? null
 
   await supabase.from('rooms').update({ current_track_id: next }).eq('id', roomId)
-  if (current) await supabase.from('tracks').delete().eq('id', current)
+  if (current) {
+    // Historique avant suppression du morceau passé.
+    const { data: cur } = await supabase
+      .from('tracks').select(HISTORY_SELECT).eq('id', current).maybeSingle()
+    if (cur) await recordHistory(supabase, [cur])
+    await supabase.from('tracks').delete().eq('id', current)
+  }
 
   return { ok: true, next }
 })

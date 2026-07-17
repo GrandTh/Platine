@@ -281,6 +281,27 @@ alter table public.announcements enable row level security;
 -- Lecture anon (Realtime) ; écriture RÉSERVÉE au service role (endpoint admin).
 create policy "announcements: anon read" on public.announcements for select using (true);
 
+-- Historique de playlist : morceaux qui ont quitté la file (joué/retiré/vidé),
+-- pour re-ajout en un clic. Alimenté par les endpoints de suppression (service
+-- role). Cascade avec la room (éphémère).
+create table if not exists public.track_history (
+  id          uuid primary key default gen_random_uuid(),
+  room_id     text not null references public.rooms (id) on delete cascade,
+  title       text not null,
+  artist      text not null default '',
+  cover       text not null default '',
+  source      text not null default 'youtube',
+  external_id text not null,
+  duration    integer,
+  added_by    text,
+  played_at   timestamptz not null default now()
+);
+create index if not exists track_history_room_idx on public.track_history (room_id, played_at desc);
+alter publication supabase_realtime add table public.track_history;
+alter table public.track_history enable row level security;
+-- Lecture anon (Realtime) ; écriture RÉSERVÉE au service role (endpoints).
+create policy "track_history: anon read" on public.track_history for select using (true);
+
 
 -- ============================================================
 --  9) RATE LIMIT — anti-abus recherche (migration 13)

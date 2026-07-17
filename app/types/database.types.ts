@@ -217,6 +217,45 @@ export type Database = {
         }
         Relationships: []
       }
+      track_history: {
+        Row: {
+          id: string
+          room_id: string
+          title: string
+          artist: string
+          cover: string
+          source: string
+          external_id: string
+          duration: number | null
+          added_by: string | null
+          played_at: string
+        }
+        Insert: {
+          id?: string
+          room_id: string
+          title: string
+          artist?: string
+          cover?: string
+          source?: string
+          external_id: string
+          duration?: number | null
+          added_by?: string | null
+          played_at?: string
+        }
+        Update: {
+          id?: string
+          room_id?: string
+          title?: string
+          artist?: string
+          cover?: string
+          source?: string
+          external_id?: string
+          duration?: number | null
+          added_by?: string | null
+          played_at?: string
+        }
+        Relationships: []
+      }
       playlist_cache: {
         Row: {
           playlist_id: string

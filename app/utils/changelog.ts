@@ -35,6 +35,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.0',
+    date: '2026-07-10',
+    features: [
+      {
+        fr: 'Historique de la playlist : les morceaux déjà passés sont conservés, et vous pouvez les remettre dans la file en un clic — fini de tout re-chercher après un « vider la file ».',
+        en: 'Playlist history: tracks that already played are kept, and you can add them back to the queue in one click — no more re-searching everything after a "clear queue".'
+      }
+    ],
+    fixes: true
+  },
+  {
     version: '1.3.1',
     date: '2026-07-09',
     fixes: true

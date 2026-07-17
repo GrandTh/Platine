@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PerspectiveCamera } from 'three'
 import { emojiToCode, twemojiUrl, useEmotes } from '~/composables/useEmotes'
+import { useHistory, type HistoryItem } from '~/composables/useHistory'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -149,8 +150,25 @@ function onPickerSelect(native: string) {
   emotePickerOpen.value = false
 }
 
-// Onglets du panneau latéral : recherche / playlist / membres
-const panelTab = ref<'search' | 'queue' | 'members'>('queue')
+// Onglets du panneau latéral : recherche / playlist / membres / historique
+const panelTab = ref<'search' | 'queue' | 'members' | 'history'>('queue')
+
+// Historique de la playlist (morceaux déjà passés) → re-ajout en un clic.
+const { items: historyItems, toNewTrack } = useHistory(roomId.value)
+async function reAdd(item: HistoryItem) {
+  if (iAmMuted.value) return // droit d'ajout retiré par l'hôte (refusé serveur)
+  if (addingIds.value.has(item.externalId)) return
+  addingIds.value.add(item.externalId)
+  try {
+    const res = await addTrack(toNewTrack(item))
+    if (res === 'full') {
+      importMsg.value = t('panel.queueFull')
+      setTimeout(() => (importMsg.value = ''), 2500)
+    }
+  } finally {
+    addingIds.value.delete(item.externalId)
+  }
+}
 
 // --- Bottom sheet (mobile + tablette portrait, < lg) ---
 // Le panneau est un tiroir qu'on tire vers le haut. Replié : seule la poignée
@@ -392,7 +410,7 @@ function togglePanel() {
   if (import.meta.client) localStorage.setItem(PANEL_KEY, panelCollapsed.value ? '1' : '0')
 }
 // Depuis le mini-rail replié : rouvre le panneau directement sur un onglet.
-function openPanelTab(tab: 'queue' | 'search' | 'members') {
+function openPanelTab(tab: 'queue' | 'search' | 'members' | 'history') {
   panelTab.value = tab
   panelCollapsed.value = false
   if (import.meta.client) localStorage.setItem(PANEL_KEY, '0')
@@ -1132,6 +1150,67 @@ async function copyLink() {
             />
             <span class="rounded-full bg-white/10 px-1.5 text-xs font-semibold">{{ members.length }}</span>
           </button>
+          <button
+            class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 transition"
+            :class="panelTab === 'history' ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'"
+            :title="t('panel.history')"
+            :aria-label="t('panel.history')"
+            @click="panelTab = 'history'; openSheet()"
+          >
+            <UIcon
+              name="i-lucide-history"
+              class="size-5"
+            />
+          </button>
+        </div>
+
+        <!-- ───── Onglet HISTORIQUE ───── -->
+        <div
+          v-if="panelTab === 'history'"
+          class="mt-4 flex-1 overflow-y-auto"
+        >
+          <p class="mb-2 px-1 text-xs text-white/40">
+            {{ t('panel.historyHint') }}
+          </p>
+          <div
+            v-if="!historyItems.length"
+            class="grid place-items-center py-10 text-center text-sm text-white/40"
+          >
+            {{ t('panel.historyEmpty') }}
+          </div>
+          <ul
+            v-else
+            class="space-y-1.5"
+          >
+            <li
+              v-for="h in historyItems"
+              :key="h.source + h.externalId"
+              class="flex items-center gap-3 rounded-xl bg-white/5 px-2.5 py-2"
+            >
+              <img
+                :src="h.cover"
+                alt=""
+                class="size-10 shrink-0 rounded-lg object-cover"
+              >
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm">{{ h.title }}</span>
+                <span class="block truncate text-xs text-white/45">{{ h.artist }}<template v-if="fmtDuration(h.duration)"> · {{ fmtDuration(h.duration) }}</template></span>
+              </span>
+              <button
+                v-if="!iAmMuted"
+                class="flex shrink-0 cursor-pointer items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="addingIds.has(h.externalId) || isQueued(h.source, h.externalId)"
+                @click="reAdd(h)"
+              >
+                <UIcon
+                  :name="addingIds.has(h.externalId) ? 'i-lucide-loader-circle' : (isQueued(h.source, h.externalId) ? 'i-lucide-check' : 'i-lucide-plus')"
+                  class="size-4"
+                  :class="{ 'animate-spin': addingIds.has(h.externalId) }"
+                />
+                {{ isQueued(h.source, h.externalId) ? t('panel.alreadyQueued') : t('panel.readd') }}
+              </button>
+            </li>
+          </ul>
         </div>
 
         <!-- ───── Onglet MEMBRES ───── -->
@@ -1695,6 +1774,18 @@ async function copyLink() {
       >
         <UIcon
           name="i-lucide-search"
+          class="size-5"
+        />
+      </button>
+      <!-- Historique -->
+      <button
+        class="grid size-9 cursor-pointer place-items-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
+        :aria-label="t('panel.history')"
+        :title="t('panel.history')"
+        @click="openPanelTab('history')"
+      >
+        <UIcon
+          name="i-lucide-history"
           class="size-5"
         />
       </button>

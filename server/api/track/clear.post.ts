@@ -31,6 +31,12 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
     throw createError({ statusCode: 403, statusMessage: 'Action réservée à l\'hôte' })
   }
 
+  // Historique : on copie les morceaux vidés AVANT de les supprimer.
+  let toRemove = supabase.from('tracks').select(HISTORY_SELECT).eq('room_id', roomId)
+  if (keepId) toRemove = toRemove.neq('id', keepId)
+  const { data: removed } = await toRemove
+  await recordHistory(supabase, removed ?? [])
+
   let query = supabase.from('tracks').delete().eq('room_id', roomId)
   if (keepId) query = query.neq('id', keepId)
   await query

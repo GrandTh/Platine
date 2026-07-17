@@ -110,6 +110,10 @@
     "muteAll": "Remove everyone's add right",
     "unmuteAll": "Restore everyone's add right",
     "mutedBadge": "Can no longer add tracks",
-    "mutedNotice": "The host removed your permission to add tracks."
+    "mutedNotice": "The host removed your permission to add tracks.",
+    "history": "History",
+    "historyHint": "Tracks that already played. Tap to add them back to the queue.",
+    "historyEmpty": "No tracks have played yet.",
+    "readd": "Add back"
   }
 }

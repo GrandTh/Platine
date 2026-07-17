@@ -110,6 +110,10 @@
     "muteAll": "Retirer le droit d'ajout à tous",
     "unmuteAll": "Rendre le droit d'ajout à tous",
     "mutedBadge": "Ne peut plus ajouter de morceaux",
-    "mutedNotice": "L'hôte t'a retiré le droit d'ajouter des morceaux."
+    "mutedNotice": "L'hôte t'a retiré le droit d'ajouter des morceaux.",
+    "history": "Historique",
+    "historyHint": "Les morceaux déjà passés. Cliquez pour les remettre dans la file.",
+    "historyEmpty": "Aucun morceau passé pour l'instant.",
+    "readd": "Remettre"
   }
 }

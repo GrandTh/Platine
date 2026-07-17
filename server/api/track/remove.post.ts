@@ -25,7 +25,7 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
   // Autorisation : auteur du morceau OU hôte de la room.
   const { data: track } = await supabase
     .from('tracks')
-    .select('added_by')
+    .select(HISTORY_SELECT)
     .eq('id', trackId)
     .eq('room_id', roomId)
     .maybeSingle()
@@ -40,6 +40,7 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
     throw createError({ statusCode: 403, statusMessage: 'Action non autorisée' })
   }
 
+  await recordHistory(supabase, [track]) // historique avant suppression
   await supabase.from('tracks').delete().eq('id', trackId)
   return { ok: true }
 })
