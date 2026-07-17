@@ -160,7 +160,20 @@ watch(() => props.videoId, (id) => {
   }
 })
 
-watch(() => props.muted, () => applyVolume())
+watch(() => props.muted, (m, prev) => {
+  applyVolume()
+  // Passage muet → non-muet (ex. bascule « plusieurs ordi » côté invité) : le
+  // navigateur peut refuser l'activation du son sans geste. Si, peu après, le
+  // player est TOUJOURS muet, on affiche l'overlay « Rejoindre l'écoute » (un tap
+  // = unMute + lecture garantis via resume()).
+  if (prev && !m && props.playing !== false) {
+    setTimeout(() => {
+      if (player && ready.value && !props.muted && player.isMuted()) {
+        needsGesture.value = true
+      }
+    }, 400)
+  }
+})
 
 watch(() => props.volume, () => applyVolume())
 

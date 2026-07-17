@@ -81,7 +81,7 @@ export function useRoomLifecycle(
   // Écriture de l'état room via la route serveur (l'update anon est bloqué par
   // la RLS ; l'autorisation hôte est revérifiée côté serveur). Optimiste côté
   // client, le Realtime fait foi. Best-effort : on n'interrompt pas l'UX.
-  function pushState(patch: { playing?: boolean, currentTrackId?: string | null, shuffleSeed?: string, autoplay?: boolean }) {
+  function pushState(patch: { playing?: boolean, currentTrackId?: string | null, shuffleSeed?: string, autoplay?: boolean, mode?: RoomMode }) {
     return $fetch('/api/room/state', { method: 'POST', body: { roomId, uid, ...patch } }).catch(() => {})
   }
 
@@ -125,6 +125,14 @@ export function useRoomLifecycle(
     await pushState({ autoplay: on })
   }
 
+  /** Bascule le mode « un seul ordi » ↔ « plusieurs ordi » (hôte uniquement).
+   *  Propagé via Realtime → change le mute des invités en direct. */
+  async function setMode(next: RoomMode) {
+    if (!isHost.value || roomMode.value === next) return
+    roomMode.value = next // optimiste
+    await pushState({ mode: next })
+  }
+
   onMounted(async () => {
     if (wantHost) await createIfAbsent()
     await loadRoom()
@@ -152,11 +160,13 @@ export function useRoomLifecycle(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
         (payload) => {
-          const row = payload.new as { playing?: boolean, current_track_id?: string | null, shuffle_seed?: string | null, host_id?: string, autoplay?: boolean }
+          const row = payload.new as { playing?: boolean, current_track_id?: string | null, shuffle_seed?: string | null, host_id?: string, autoplay?: boolean, mode?: RoomMode }
           if (typeof row.playing === 'boolean') playing.value = row.playing
           if ('current_track_id' in row) currentTrackId.value = row.current_track_id ?? null
           if ('shuffle_seed' in row) shuffleSeed.value = row.shuffle_seed ?? null
           if (typeof row.autoplay === 'boolean') autoplay.value = row.autoplay
+          // Bascule de mode par l'hôte → change le mute des invités en direct.
+          if (row.mode === 'speaker' || row.mode === 'each') roomMode.value = row.mode
           // Passation d'hôte : le rôle peut changer en direct (proprio absent →
           // reprise par un invité, ou retour du proprio). On bascule l'UI.
           if (typeof row.host_id === 'string') {
@@ -178,7 +188,7 @@ export function useRoomLifecycle(
   })
 
   return {
-    exists, ready, rateLimited, mode: roomMode, isHost, hostId,
+    exists, ready, rateLimited, mode: roomMode, setMode, isHost, hostId,
     playing, togglePlaying, setPlaying, broadcastSeek, onSeek,
     currentTrackId, setCurrentTrack, shuffleSeed, reshuffle,
     autoplay, setAutoplay

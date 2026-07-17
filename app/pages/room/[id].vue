@@ -31,11 +31,25 @@ const uid = useAnonId()
 // Cycle de vie + config réelle de la room (mode/hôte lus en DB).
 // Tout le monde voit le clip ; en mode 'speaker', seuls les invités sont muets.
 const {
-  exists, ready, rateLimited, mode, isHost, playing, togglePlaying, setPlaying,
+  exists, ready, rateLimited, mode, setMode, isHost, playing, togglePlaying, setPlaying,
   broadcastSeek, onSeek, currentTrackId, setCurrentTrack,
   shuffleSeed, reshuffle, autoplay, setAutoplay
 } = useRoomLifecycle(roomId.value, uid, wantHost, urlMode)
 const muted = computed(() => mode.value === 'speaker' && !isHost.value)
+
+// Bascule « un seul ordi » ↔ « plusieurs ordi » (hôte uniquement, vérifié serveur).
+// `modeSwitching` désactive le bouton + montre un loader le temps de l'appel →
+// pas de spam / de requêtes concurrentes.
+const modeSwitching = ref(false)
+async function toggleMode() {
+  if (!isHost.value || modeSwitching.value) return
+  modeSwitching.value = true
+  try {
+    await setMode(mode.value === 'speaker' ? 'each' : 'speaker')
+  } finally {
+    modeSwitching.value = false
+  }
+}
 
 // Réessayer une création refusée par le rate limit (après avoir patienté).
 function retryRoom() {
@@ -692,8 +706,15 @@ async function copyLink() {
           <span class="text-xs text-white/45">{{ t('room.private') }}</span>
         </div>
 
-        <!-- Mode d'écoute (desktop uniquement) -->
-        <div class="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-xl lg:flex">
+        <!-- Mode d'écoute (desktop). Cliquable pour l'HÔTE → bascule le mode. -->
+        <component
+          :is="isHost ? 'button' : 'div'"
+          class="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-xl transition lg:flex"
+          :class="isHost ? (modeSwitching ? 'cursor-wait opacity-60' : 'cursor-pointer hover:bg-white/20') : ''"
+          :disabled="modeSwitching"
+          :title="isHost ? t('room.modeToggle') : undefined"
+          @click="toggleMode"
+        >
           <UIcon
             :name="mode === 'speaker' ? 'i-lucide-volume-2' : 'i-lucide-laptop'"
             class="size-4 text-white/70"
@@ -701,7 +722,13 @@ async function copyLink() {
           <span class="text-xs text-white/60">
             {{ mode === 'speaker' ? t('room.modeSpeaker') : t('room.modeEach') }}
           </span>
-        </div>
+          <UIcon
+            v-if="isHost"
+            :name="modeSwitching ? 'i-lucide-loader-circle' : 'i-lucide-repeat'"
+            class="size-3 text-white/40"
+            :class="modeSwitching ? 'animate-spin' : ''"
+          />
+        </component>
       </div>
 
       <div class="pointer-events-auto flex flex-col items-end gap-2">
@@ -731,6 +758,26 @@ async function copyLink() {
           <span class="text-sm font-semibold tracking-[0.2em]">{{ roomId }}</span>
           <span class="text-xs text-white/45">{{ t('room.private') }}</span>
         </div>
+
+        <!-- Bascule de mode (mobile) — HÔTE uniquement. -->
+        <button
+          v-if="isHost"
+          class="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-4 py-2 backdrop-blur-xl transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60 lg:hidden"
+          :disabled="modeSwitching"
+          :title="t('room.modeToggle')"
+          @click="toggleMode"
+        >
+          <UIcon
+            :name="mode === 'speaker' ? 'i-lucide-volume-2' : 'i-lucide-laptop'"
+            class="size-4 text-white/70"
+          />
+          <span class="text-xs text-white/60">{{ mode === 'speaker' ? t('room.modeSpeaker') : t('room.modeEach') }}</span>
+          <UIcon
+            :name="modeSwitching ? 'i-lucide-loader-circle' : 'i-lucide-repeat'"
+            class="size-3 text-white/40"
+            :class="modeSwitching ? 'animate-spin' : ''"
+          />
+        </button>
       </div>
     </header>
 

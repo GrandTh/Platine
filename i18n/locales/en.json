@@ -45,6 +45,7 @@
     "private": "· private",
     "modeSpeaker": "Same room",
     "modeEach": "Each on their device",
+    "modeToggle": "Change listening mode",
     "invite": "Invite",
     "linkCopied": "Link copied!",
     "fullscreen": "Fullscreen",

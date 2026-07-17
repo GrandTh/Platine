@@ -10,6 +10,8 @@
  *   - playing : boolean
  *   - currentTrackId : string | null
  *   - shuffleSeed : string
+ *   - autoplay : boolean
+ *   - mode : 'speaker' | 'each'  (bascule « un seul ordi » ↔ « plusieurs ordi »)
  */
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database } from '~/types/database.types'
@@ -50,6 +52,7 @@ export default defineEventHandler(async (event): Promise<{ ok: true }> => {
     patch.shuffle_seed = body.shuffleSeed
   }
   if (typeof body.autoplay === 'boolean') patch.autoplay = body.autoplay
+  if (body.mode === 'speaker' || body.mode === 'each') patch.mode = body.mode
 
   if (Object.keys(patch).length) {
     await supabase.from('rooms').update(patch).eq('id', roomId)

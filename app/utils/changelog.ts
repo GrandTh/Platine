@@ -39,8 +39,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: '2026-07-10',
     features: [
       {
-        fr: 'Historique de la playlist : les morceaux déjà passés sont conservés, et vous pouvez les remettre dans la file en un clic — fini de tout re-chercher après un « vider la file ».',
-        en: 'Playlist history: tracks that already played are kept, and you can add them back to the queue in one click — no more re-searching everything after a "clear queue".'
+        fr: 'Historique de la playlist : les morceaux déjà passés sont conservés, et vous pouvez les remettre dans la file en un clic. Fini de tout re-chercher après un « vider la file ».',
+        en: 'Playlist history: tracks that already played are kept, and you can add them back to the queue in one click. No more re-searching everything after a "clear queue".'
+      },
+      {
+        fr: 'L\'hôte peut maintenant changer le mode d\'écoute (« même pièce » ↔ « chacun son ordi ») à tout moment depuis la room, sans avoir à la recréer.',
+        en: 'The host can now switch the listening mode ("same room" ↔ "each on their device") at any time from the room, without recreating it.'
       }
     ],
     fixes: true
@@ -55,8 +59,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: '2026-07-02',
     features: [
       {
-        fr: 'Vous pouvez désormais soutenir Platine avec un petit café ☕ — un lien depuis l\'accueil, pour aider à garder l\'app gratuite et sans pub.',
-        en: 'You can now support Platine with a small coffee ☕ — a link from the home page, to help keep the app free and ad-free.'
+        fr: 'Vous pouvez désormais soutenir Platine avec un petit café ☕, via un lien depuis l\'accueil, pour aider à garder l\'app gratuite et sans pub.',
+        en: 'You can now support Platine with a small coffee ☕, via a link from the home page, to help keep the app free and ad-free.'
       }
     ],
     fixes: true
